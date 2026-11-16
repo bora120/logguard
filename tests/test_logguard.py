@@ -289,3 +289,11 @@ def test_story_and_korean_time():
     assert story["todo"] and all(t["title"] for t in story["todo"])
     calm = build_story({"ips": [], "summary": {"levels": {}, "flagged": 0, "ips": 3}})
     assert calm["mood"] == "calm"
+
+
+def test_decoded_url_is_still_escaped(client):
+    evil = '203.0.113.66 - - [16/Nov/2026:21:52:48 +0900] "GET /a?q=%3Cscript%3Ealert(9)%3C/script%3E HTTP/1.1" 200 1 "-" "M"\n'
+    res = client.post("/analyze", files={"file": ("access.log", (COMBINED * 5 + evil * 3).encode())})
+    assert res.status_code == 200
+    assert "<script>alert(9)" not in res.text
+    assert "&lt;script&gt;alert(9)" in res.text

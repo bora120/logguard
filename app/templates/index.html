@@ -1,98 +1,119 @@
 {% extends "base.html" %}
 {% block content %}
-<section class="hero">
-  {{ gardi("calm", 132, "gardi-bob") }}
+<section class="hero" aria-labelledby="hero-title">
+  {{ gardi("calm", 128, "gardi-bob") }}
   <div>
-    <h1>서버 방문 기록을 올리면<br>수상한 방문자를 찾아드려요</h1>
+    <h1 id="hero-title">서버 방문 기록을 올리면<br>수상한 방문자를 찾아드려요</h1>
     <p>비밀번호를 마구 넣어보는 접속, 숨겨진 파일을 뒤지는 접속, 해킹 명령어를 섞어 보내는 접속까지. 보안을 몰라도 읽을 수 있게 쉬운 말로 알려드려요.</p>
   </div>
 </section>
 
-{% if error %}
-<div class="alert" role="alert"><strong>분석하지 못했어요.</strong> {{ error }}</div>
-{% endif %}
+<div class="upload-row">
+<div class="stack">
+  {% if error %}
+  <p class="alert" role="alert"><strong>분석하지 못했어요.</strong> {{ error }}</p>
+  {% endif %}
 
-<section class="upload" aria-label="로그 파일 올리기">
-  <form id="upload-form" action="/analyze" method="post" enctype="multipart/form-data" data-max-mb="{{ max_mb }}">
-    <label class="dropzone" id="dropzone" for="file">
-      <input id="file" name="file" type="file" accept=".log,.txt,.gz,.1,text/plain,application/gzip" required>
-      <span class="dz-icon" aria-hidden="true">📄</span>
-      <span class="dz-title" id="dz-title">로그 파일을 여기로 끌어다 놓거나 눌러서 고르세요</span>
-      <span class="dz-sub">access.log, access.log.gz 같은 파일 · 자동으로 압축해서 최대 {{ max_mb }}MB까지</span>
-    </label>
+  <section class="panel" aria-label="로그 파일 올리기">
+    <form id="upload-form" action="/analyze" method="post" enctype="multipart/form-data" data-max-mb="{{ max_mb }}">
+      <label class="dropzone" id="dropzone">
+        <input id="file" name="file" type="file" accept=".log,.txt,.gz,.1,text/plain,application/gzip" aria-describedby="dz-sub" required>
+        {{ upload() }}
+        <span class="dz-title" id="dz-title">로그 파일을 끌어다 놓거나 눌러서 고르세요</span>
+        <span class="dz-sub" id="dz-sub">access.log, access.log.gz 같은 파일 · 자동으로 압축해서 최대 {{ max_mb }}MB까지</span>
+      </label>
 
-    <details class="advanced">
-      <summary>고급 설정 (몰라도 괜찮아요)</summary>
-      <div class="adv-body">
-        <label class="field">
-          <span class="field-label">IP 기준</span>
-          <select name="ip_source">
-            <option value="auto" selected>자동 (추천)</option>
-            <option value="remote">접속 주소 그대로</option>
-            <option value="xff">X-Forwarded-For의 실제 접속자 IP</option>
-          </select>
-          <span class="field-help">Cloudflare 같은 CDN을 쓰는 서버라면 X-Forwarded-For 기준이 정확해요.</span>
-        </label>
-        <label class="field">
-          <span class="field-label">로그 형식</span>
-          <textarea name="log_format" rows="2" maxlength="500" spellcheck="false"
-            placeholder='비워두면 자동으로 알아내요. 예) %h %l %u %t "%r" %>s %b "%{Referer}i" "%{User-Agent}i" %D'></textarea>
-          <span class="field-help">기록 형식을 직접 바꿨다면 서버 설정의 Apache <code>LogFormat</code> 또는 Nginx <code>log_format</code> 값을 붙여넣으세요.</span>
-        </label>
-        {% if abuse_enabled %}
-        <label class="consent">
-          <input type="checkbox" name="abuse">
-          <span>찾아낸 IP가 다른 곳에서도 공격자로 신고됐는지 AbuseIPDB에서 확인해요. (찾아낸 IP 최대 {{ abuse_max }}개만 보내요)</span>
-        </label>
-        {% endif %}
-      </div>
-    </details>
+      <details class="advanced">
+        <summary>{{ chevron() }}고급 설정 <span class="muted small">(몰라도 괜찮아요)</span></summary>
+        <div class="adv-body">
+          <label class="field">
+            <span class="field-label">IP 기준</span>
+            <select name="ip_source">
+              <option value="auto" selected>자동 (추천)</option>
+              <option value="remote">접속 주소 그대로</option>
+              <option value="xff">X-Forwarded-For의 실제 접속자 IP</option>
+            </select>
+            <span class="field-help">Cloudflare 같은 CDN을 쓰는 서버라면 X-Forwarded-For 기준이 정확해요.</span>
+          </label>
+          <label class="field">
+            <span class="field-label">로그 형식</span>
+            <textarea name="log_format" rows="2" maxlength="500" spellcheck="false"
+              placeholder='비워두면 자동으로 알아내요. 예) %h %l %u %t "%r" %>s %b "%{Referer}i" "%{User-Agent}i" %D'></textarea>
+            <span class="field-help">기록 형식을 직접 바꿨다면 서버 설정의 Apache <code>LogFormat</code> 또는 Nginx <code>log_format</code> 값을 붙여넣으세요.</span>
+          </label>
+          {% if abuse_enabled %}
+          <label class="check">
+            <input type="checkbox" name="abuse">
+            <span>찾아낸 IP가 다른 곳에서도 공격자로 신고됐는지 AbuseIPDB에서 확인해요. (찾아낸 IP 최대 {{ abuse_max }}개만 보내요)</span>
+          </label>
+          {% endif %}
+        </div>
+      </details>
 
-    <label class="consent">
-      <input type="checkbox" required>
-      <span>제가 운영하거나 분석 권한이 있는 서버의 기록이에요.</span>
-    </label>
-    <p class="form-error" id="form-error" role="alert" hidden></p>
-    <button class="btn primary" type="submit" id="submit-btn">수상한 접속 찾기</button>
-  </form>
-  <p class="or">로그 파일이 없다면 <a href="/sample">샘플 보고서 먼저 보기</a> 또는 <a href="/sample/download">샘플 로그 받기</a></p>
-</section>
+      <label class="check consent">
+        <input type="checkbox" id="consent" required>
+        <span>제가 운영하거나 분석 권한이 있는 서버의 기록이에요.</span>
+      </label>
+      <p class="form-error" id="form-error" role="alert" hidden></p>
+      <button class="btn btn-primary" type="submit" id="submit-btn">수상한 접속 찾기</button>
+    </form>
+  </section>
+</div>
 
-<section aria-labelledby="how">
-  <h2 class="section-title" id="how">이렇게 사용해요</h2>
+<aside class="panel side" aria-label="처음이라면">
+  <h2>처음이라면</h2>
+  <p>로그 파일이 없어도 괜찮아요. 가상 기록으로 만든 결과를 먼저 둘러보세요.</p>
+  <div class="side-actions">
+    <a class="btn" href="/sample">샘플 보고서 보기</a>
+    <a class="btn" href="/sample/download">샘플 로그 받기</a>
+  </div>
+  <dl class="side-facts">
+    <div><dt>읽을 수 있는 기록</dt><dd>Apache·Nginx 접속 기록, 압축 파일(.gz)</dd></div>
+    <div><dt>올린 파일은</dt><dd>저장하지 않고 분석이 끝나면 바로 지워요</dd></div>
+    <div><dt>걸리는 시간</dt><dd>보통 몇 초, 큰 파일은 20초 안팎</dd></div>
+  </dl>
+</aside>
+</div>
+
+<section class="section" aria-labelledby="how">
+  <h2 id="how">이렇게 사용해요</h2>
   <ol class="steps">
-    <li><b>로그 파일 가져오기</b><span>웹 서버에 쌓인 접속 기록 파일(access.log)을 내 컴퓨터로 받아요.</span></li>
-    <li><b>여기에 올리기</b><span>파일을 위 칸에 끌어다 놓고 ‘수상한 접속 찾기’를 눌러요.</span></li>
-    <li><b>결과 확인하기</b><span>무엇이 위험한지, 지금 무엇을 하면 되는지 쉬운 말로 알려드려요.</span></li>
+    <li><h3>로그 파일 가져오기</h3><p>웹 서버에 쌓인 접속 기록 파일(access.log)을 내 컴퓨터로 받아요.</p></li>
+    <li><h3>여기에 올리기</h3><p>파일을 위 칸에 끌어다 놓고 ‘수상한 접속 찾기’를 눌러요.</p></li>
+    <li><h3>결과 확인하기</h3><p>무엇이 위험한지, 지금 무엇을 하면 되는지 쉬운 말로 알려드려요.</p></li>
   </ol>
 </section>
 
-<section aria-labelledby="finds">
-  <h2 class="section-title" id="finds">이런 행동을 찾아요</h2>
+<section class="section" aria-labelledby="finds">
+  <h2 id="finds">이런 행동을 찾아요</h2>
   <ul class="finds">
     {% for key in ["R6", "R3", "R5", "R2", "R1", "R4", "R7", "AI", "TI"] %}{% set x = RULES[key] %}
-    <li><span class="ico" aria-hidden="true">{{ x.icon }}</span><div><b>{{ x.easy }}</b><span>{{ x.short }}</span></div></li>
+    <li><h3>{{ x.easy }}</h3><p>{{ x.short }}</p></li>
     {% endfor %}
   </ul>
 </section>
 
-<section class="panel whatis" aria-labelledby="whatis">
-  <div>
-    <h2 id="whatis">로그 파일이 뭐예요?</h2>
-    <p>웹사이트에 누가, 언제, 어떤 페이지를 열었는지 한 줄씩 적어두는 기록이에요. 가게의 방문자 명부라고 생각하면 돼요. 한 줄은 이렇게 생겼어요.</p>
-    <span class="sample-line">203.0.113.7 - - [16/Nov/2026:15:15:30 +0900] "GET /login HTTP/1.1" 200 512 "-" "Mozilla/5.0"</span>
-    <p class="muted small">접속한 곳(IP), 시간, 연 페이지, 서버의 대답(200은 ‘정상’), 사용한 프로그램 순서예요.</p>
-  </div>
-  <div>
-    <h3>어디에 있나요?</h3>
-    <table class="where">
-      <tr><th>Apache (Ubuntu)</th><td><code>/var/log/apache2/access.log</code></td></tr>
-      <tr><th>Apache (CentOS·Rocky)</th><td><code>/var/log/httpd/access_log</code></td></tr>
-      <tr><th>Nginx</th><td><code>/var/log/nginx/access.log</code></td></tr>
-    </table>
-    <p class="small">내 컴퓨터로 가져오기 (Windows PowerShell에서)</p>
-    <span class="sample-line">scp 사용자@서버주소:/var/log/apache2/access.log .</span>
+<section class="section" aria-labelledby="whatis">
+  <div class="panel whatis">
+    <div>
+      <h2 id="whatis">로그 파일이 뭐예요?</h2>
+      <p>웹사이트에 누가, 언제, 어떤 페이지를 열었는지 한 줄씩 적어두는 기록이에요. 가게의 방문자 명부라고 생각하면 돼요. 한 줄은 이렇게 생겼어요.</p>
+      <code class="code-line">203.0.113.7 - - [16/Nov/2026:15:15:30 +0900] "GET /login HTTP/1.1" 200 512 "-" "Mozilla/5.0"</code>
+      <p class="muted small">접속한 곳(IP), 시간, 연 페이지, 서버의 대답(200은 ‘정상’), 사용한 프로그램 순서예요.</p>
+    </div>
+    <div>
+      <h3>어디에 있나요?</h3>
+      <table class="where">
+        <tbody>
+          <tr><th scope="row">Apache (Ubuntu)</th><td><code>/var/log/apache2/access.log</code></td></tr>
+          <tr><th scope="row">Apache (CentOS·Rocky)</th><td><code>/var/log/httpd/access_log</code></td></tr>
+          <tr><th scope="row">Nginx</th><td><code>/var/log/nginx/access.log</code></td></tr>
+        </tbody>
+      </table>
+      <p class="small">내 컴퓨터로 가져오기 (Windows PowerShell)</p>
+      <code class="code-line">scp 사용자@서버주소:/var/log/apache2/access.log .</code>
+    </div>
   </div>
 </section>
 {% endblock %}
-{% block scripts %}<script src="/static/upload.js"></script>{% endblock %}
+{% block scripts %}<script src="/static/upload.js" defer></script>{% endblock %}

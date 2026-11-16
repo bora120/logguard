@@ -1,29 +1,31 @@
-{% from "_mascot.html" import gardi %}<!DOCTYPE html>
+{% from "_mascot.html" import gardi %}{% from "_icons.html" import chevron, upload %}<!DOCTYPE html>
 <html lang="ko">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}{{ app_name }} · 서버 방문 기록에서 수상한 접속 찾기{% endblock %}</title>
   <meta name="description" content="웹 서버 접속 기록(로그)을 올리면 비밀번호 대입, 비밀 파일 찾기, 해킹 명령어 같은 수상한 접속을 찾아 쉬운 말로 알려드려요.">
-  <meta name="theme-color" content="#FCE4EE">
+  <meta name="theme-color" content="#F7F7F9">
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-  <header class="topbar">
-    <a class="brand" href="/">{{ gardi("calm", 34) }}{{ app_name }}</a>
+  <header class="topbar wrap">
+    <a class="brand" href="/" aria-label="{{ app_name }} 처음 화면">{{ gardi("calm", 32) }}<span>{{ app_name }}</span></a>
     <nav aria-label="주요 메뉴">
       <a href="/sample">샘플 보고서</a>
       <a href="/privacy">개인정보 처리</a>
     </nav>
   </header>
-  <main>
+  <main class="wrap" id="main">
     {% block content %}{% endblock %}
   </main>
-  <footer class="footer">
+  <footer class="wrap">
+    <div class="footer">
     <p>본인이 운영하거나 분석 권한을 받은 서버의 기록만 올려 주세요. 올린 파일은 저장하지 않고 분석이 끝나면 바로 지워요.</p>
-    <p>결과는 '살펴볼 목록'이에요. 정상 접속이 잘못 표시되거나 공격을 놓칠 수도 있어요.{% if contact %} 문의: {{ contact }}{% endif %}</p>
+    <p>결과는 ‘살펴볼 목록’이에요. 정상 접속이 잘못 표시되거나 공격을 놓칠 수도 있어요.{% if contact %} 문의: {{ contact }}{% endif %}</p>
     {% if geo_enabled %}<p><a href="https://db-ip.com" rel="noopener">IP Geolocation by DB-IP</a> (CC BY 4.0)</p>{% endif %}
+    </div>
   </footer>
   {% block scripts %}{% endblock %}
 </body>

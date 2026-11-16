@@ -378,8 +378,9 @@ def analyze(df: pd.DataFrame, fmt: str = "combined", max_ip_reports: int = 200,
                 "last_seen": r["last_seen"].isoformat(),
                 "agent": r["agent"][:160],
             },
-            "samples": [{"time": t.isoformat(), "method": m, "url": u[:300], "status": int(st)}
-                        for t, m, u, st in sample_rows[["time", "method", "url", "status"]].itertuples(index=False)],
+            "samples": [{"time": t.isoformat(), "method": m, "url": u[:300], "url_dec": ud[:300], "status": int(st)}
+                        for t, m, u, ud, st in sample_rows[["time", "method", "url", "url_dec", "status"]]
+                        .itertuples(index=False)],
             "intel": {},
         })
 

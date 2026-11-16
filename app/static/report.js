@@ -1,166 +1,232 @@
+/* LogGuard 보고서 화면: 그래프, 위험도 필터, 할 일 체크, CSV 저장, 인쇄 */
 (function () {
-  const el = document.getElementById("report-data");
-  if (!el) return;
-  const data = JSON.parse(el.textContent);
-  const GRID = "#F6E8EE";
+  "use strict";
 
-  // ── 차트 ──────────────────────────────────────────
-  if (window.Chart) {
-    Chart.defaults.font.family = getComputedStyle(document.body).fontFamily;
-    Chart.defaults.font.size = 12;
-    Chart.defaults.color = "#7A6570";
-    Chart.defaults.plugins.tooltip.backgroundColor = "#3B2B33";
-    Chart.defaults.plugins.tooltip.padding = 10;
-    Chart.defaults.plugins.tooltip.cornerRadius = 10;
+  const dataEl = document.getElementById("report-data");
+  if (!dataEl) return;
+  const data = JSON.parse(dataEl.textContent);
+
+  const COLOR = {
+    suspicious: "#E0475E",
+    other: "#DADDE3",
+    bar: "#E58CAD",
+    barHover: "#C2456F",
+    grid: "#EEECF1",
+    tick: "#6B6573",
+    label: "#4E4956",
+    level: { "높음": "#E0475E", "중간": "#E8913F", "낮음": "#7C8BDB" },
+  };
+  const LEVEL_NAME = { "높음": "위험", "중간": "주의", "낮음": "참고" };
+  const EASY = {};
+  const story = data.story || {};
+  (story.by_rule || []).forEach(function (x) { EASY[x.rule] = x.easy; });
+
+  const pad = function (n) { return String(n).padStart(2, "0"); };
+  const tzOffsetMs = (data.summary.tz_offset_min || 0) * 60e3;
+  const narrow = window.matchMedia("(max-width: 640px)").matches;
+
+  /* ── 그래프 ─────────────────────────────────────────────── */
+  function setupCharts() {
+    if (!window.Chart) return;
+    const C = window.Chart;
+    C.defaults.font.family = getComputedStyle(document.body).fontFamily;
+    C.defaults.font.size = 12;
+    C.defaults.color = COLOR.tick;
+    C.defaults.animation = false;
+    C.defaults.maintainAspectRatio = false;
+    Object.assign(C.defaults.plugins.tooltip, {
+      backgroundColor: "#25222A", padding: 10, cornerRadius: 8, boxPadding: 4,
+      titleFont: { weight: "600" },
+    });
+    C.defaults.plugins.legend.display = false;   // 범례는 HTML로 그린다
+
+    timelineChart(C);
+    rulesChart(C);
+    ganttChart(C);
+  }
+
+  function timelineChart(C) {
+    const el = document.getElementById("timeline");
+    if (!el) return;
     const tl = data.timeline;
-    const fmt = function (iso) {
-      if (/\d+s$/.test(tl.freq)) return iso.slice(11, 19);
-      const d = iso.slice(5, 16).replace("T", " ");
-      return tl.freq.endsWith("D") ? d.slice(0, 5) : d;
+    const short = /\d+s$/.test(tl.freq);
+    const label = function (iso) {
+      if (short) return iso.slice(11, 19);
+      const md = Number(iso.slice(5, 7)) + "/" + Number(iso.slice(8, 10));
+      return tl.freq.endsWith("D") ? md : md + " " + iso.slice(11, 16);
     };
-    new Chart(document.getElementById("timeline"), {
+    new C(el, {
       type: "bar",
       data: {
-        labels: tl.labels.map(fmt),
+        labels: tl.labels.map(label),
         datasets: [
-          { label: "수상한 접속", data: tl.suspicious, backgroundColor: "#E0475E", stack: "s",
-            borderRadius: 4, borderSkipped: false, borderColor: "#FFFFFF", borderWidth: { top: 2 } },
+          { label: "수상한 접속", data: tl.suspicious, backgroundColor: COLOR.suspicious, stack: "s",
+            borderRadius: 3, borderSkipped: false },
           { label: "그 외 접속", data: tl.total.map(function (t, i) { return t - tl.suspicious[i]; }),
-            backgroundColor: "#EAD9E1", stack: "s", borderRadius: 4, borderSkipped: false },
+            backgroundColor: COLOR.other, stack: "s", borderRadius: 3, borderSkipped: false },
         ],
       },
       options: {
-        maintainAspectRatio: false, animation: false,
-        plugins: { legend: { display: false },
-          tooltip: { callbacks: { label: function (c) { return c.dataset.label + " " + c.parsed.y.toLocaleString() + "건"; } } } },
-        scales: { x: { stacked: true, grid: { display: false }, ticks: { maxTicksLimit: 8 } },
-                  y: { stacked: true, beginAtZero: true, grid: { color: GRID }, border: { display: false } } },
-      },
-    });
-
-    const byRule = (data.story && data.story.by_rule) || [];
-    new Chart(document.getElementById("rules"), {
-      type: "bar",
-      data: { labels: byRule.map(function (x) { return x.icon + " " + x.easy; }),
-        datasets: [{ data: byRule.map(function (x) { return x.count; }), backgroundColor: "#EE8FB4",
-          hoverBackgroundColor: "#C93A72", borderRadius: 6, borderSkipped: "start", barPercentage: 0.72 }] },
-      options: {
-        indexAxis: "y", maintainAspectRatio: false, animation: false,
-        plugins: { legend: { display: false },
-          tooltip: { callbacks: { label: function (c) { return c.parsed.x + "곳"; } } } },
-        scales: { x: { beginAtZero: true, ticks: { precision: 0 }, grid: { color: GRID }, border: { display: false } },
-                  y: { grid: { display: false }, ticks: { color: "#5E4A54" } } },
+        datasets: { bar: { categoryPercentage: 0.8, barPercentage: 0.9 } },
+        plugins: { tooltip: { mode: "index", intersect: false, callbacks: {
+          label: function (c) { return " " + c.dataset.label + " " + c.parsed.y.toLocaleString() + "건"; },
+        } } },
+        scales: {
+          x: { stacked: true, grid: { display: false }, border: { color: COLOR.grid },
+               ticks: { maxTicksLimit: narrow ? 4 : 7, maxRotation: 0, autoSkipPadding: 12 } },
+          y: { stacked: true, beginAtZero: true, grid: { color: COLOR.grid }, border: { display: false },
+               ticks: { precision: 0, maxTicksLimit: 5 } },
+        },
       },
     });
   }
 
-  const EASY = {};
-  ((data.story && data.story.by_rule) || []).forEach(function (x) { EASY[x.rule] = x.icon + " " + x.easy; });
+  function rulesChart(C) {
+    const el = document.getElementById("rules");
+    const rows = story.by_rule || [];
+    if (!el || !rows.length) return;
+    new C(el, {
+      type: "bar",
+      data: {
+        labels: rows.map(function (x) { return x.easy; }),
+        datasets: [{ data: rows.map(function (x) { return x.count; }), backgroundColor: COLOR.bar,
+          hoverBackgroundColor: COLOR.barHover, borderRadius: 4, borderSkipped: "start",
+          barPercentage: 0.7, categoryPercentage: 0.9 }],
+      },
+      options: {
+        indexAxis: "y",
+        plugins: { tooltip: { callbacks: { label: function (c) { return " " + c.parsed.x + "곳"; } } } },
+        scales: {
+          x: { beginAtZero: true, grid: { color: COLOR.grid }, border: { display: false },
+               ticks: { precision: 0, maxTicksLimit: 6 } },
+          y: { grid: { display: false }, border: { color: COLOR.grid }, ticks: { color: COLOR.label } },
+        },
+      },
+    });
+  }
 
-  // ── 공격 타임라인 (간트) ───────────────────────────
-  const gBox = document.getElementById("gantt-box");
-  if (window.Chart && gBox && data.ips.length) {
-    gBox.style.height = gBox.dataset.height + "px";
-    const rows = data.ips.slice(0, 25);
-    const t0 = Date.parse(data.summary.start), t1 = Date.parse(data.summary.end);
-    const minW = Math.max((t1 - t0) * 0.006, 1000);
-    const color = { "높음": "#E0475E", "중간": "#E8913F", "낮음": "#7C8BDB" };
-    const levelName = { "높음": "위험", "중간": "주의", "낮음": "참고" };
-    const off = (data.summary.tz_offset_min || 0) * 60e3;
-    const pad = function (n) { return String(n).padStart(2, "0"); };
-    const fmtT = function (ms) {
-      const d = new Date(ms + off);
+  function ganttChart(C) {
+    const box = document.getElementById("gantt-box");
+    if (!box || !data.ips.length) return;
+    const rows = data.ips.slice(0, Number(box.dataset.rows) || 25);
+    box.style.height = Math.max(150, 48 + rows.length * 30) + "px";
+
+    const t0 = Date.parse(data.summary.start);
+    const t1 = Date.parse(data.summary.end);
+    const span = Math.max(t1 - t0, 1000);
+    const minW = Math.max(span * 0.008, 1000);
+    const fmt = function (ms) {
+      const d = new Date(ms + tzOffsetMs);
       const hm = pad(d.getUTCHours()) + ":" + pad(d.getUTCMinutes());
-      if (t1 - t0 < 3600e3) return hm + ":" + pad(d.getUTCSeconds());
-      if (t1 - t0 < 86400e3 * 2) return hm;
-      return pad(d.getUTCMonth() + 1) + "-" + pad(d.getUTCDate()) + " " + hm;
+      if (span < 3600e3) return hm + ":" + pad(d.getUTCSeconds());
+      if (span < 2 * 86400e3) return hm;
+      return (d.getUTCMonth() + 1) + "/" + d.getUTCDate() + " " + hm;
     };
-    new Chart(document.getElementById("gantt"), {
+
+    new C(document.getElementById("gantt"), {
       type: "bar",
       data: {
         labels: rows.map(function (r) { return r.ip; }),
         datasets: [{
           data: rows.map(function (r) {
-            const a = Date.parse(r.window.start), b = Date.parse(r.window.end);
-            return [a, Math.max(b, a + minW)];
+            const a = Date.parse(r.window.start);
+            return [a, Math.max(Date.parse(r.window.end), a + minW)];
           }),
-          backgroundColor: rows.map(function (r) { return color[r.level]; }),
-          borderRadius: 6, borderSkipped: false, barPercentage: 0.66, categoryPercentage: 0.9,
+          backgroundColor: rows.map(function (r) { return COLOR.level[r.level]; }),
+          borderRadius: 5, borderSkipped: false, barPercentage: 0.62, categoryPercentage: 0.9,
         }],
       },
       options: {
-        indexAxis: "y", maintainAspectRatio: false, animation: false,
-        plugins: {
-          legend: { display: false },
-          tooltip: { callbacks: {
-            label: function (ctx) {
-              const r = rows[ctx.dataIndex];
-              return levelName[r.level] + "  " + fmtT(Date.parse(r.window.start)) + " ~ " + fmtT(Date.parse(r.window.end));
-            },
-            afterLabel: function (ctx) {
-              return rows[ctx.dataIndex].findings.map(function (f) { return "• " + (EASY[f.rule] || f.name); }).join("\n");
-            },
-          } },
-        },
+        indexAxis: "y",
+        plugins: { tooltip: { callbacks: {
+          title: function (items) { return rows[items[0].dataIndex].ip; },
+          label: function (c) {
+            const r = rows[c.dataIndex];
+            return " " + LEVEL_NAME[r.level] + "  " + fmt(Date.parse(r.window.start)) + " ~ " + fmt(Date.parse(r.window.end));
+          },
+          afterLabel: function (c) {
+            return rows[c.dataIndex].findings.map(function (f) { return " · " + (EASY[f.rule] || f.name); }).join("\n");
+          },
+        } } },
         scales: {
-          x: { type: "linear", min: t0, max: t1 + minW, grid: { color: GRID }, border: { display: false },
-               ticks: { maxTicksLimit: 7, callback: function (v) { return fmtT(v); } } },
-          y: { grid: { display: false }, ticks: { font: { family: "ui-monospace, Menlo, Consolas, monospace" } } },
+          x: { type: "linear", min: t0, max: t1 + minW, grid: { color: COLOR.grid }, border: { display: false },
+               ticks: { maxTicksLimit: narrow ? 3 : 6, callback: function (v) { return fmt(v); } } },
+          y: { grid: { display: false }, border: { color: COLOR.grid },
+               ticks: { color: COLOR.label, font: { family: "ui-monospace, Menlo, Consolas, monospace", size: 12 } } },
         },
       },
     });
   }
 
-  // ── 위험도 필터 ───────────────────────────────────
-  document.querySelectorAll(".chip").forEach(function (chip) {
+  /* ── 위험도 필터 ─────────────────────────────────────────── */
+  const chips = Array.prototype.slice.call(document.querySelectorAll(".chip[data-level]"));
+  chips.forEach(function (chip) {
     chip.addEventListener("click", function () {
-      document.querySelectorAll(".chip").forEach(function (c) { c.classList.remove("active"); });
-      chip.classList.add("active");
       const lv = chip.dataset.level;
+      chips.forEach(function (c) { c.setAttribute("aria-pressed", String(c === chip)); });
       document.querySelectorAll(".ip-item").forEach(function (item) {
-        item.style.display = lv === "all" || item.dataset.level === lv ? "" : "none";
+        item.hidden = !(lv === "all" || item.dataset.level === lv);
       });
     });
   });
 
-  // ── CSV 저장 (서버에 저장하지 않으므로 브라우저에서 생성) ──
+  /* ── 할 일 체크 ─────────────────────────────────────────── */
+  document.querySelectorAll(".todo input[type=checkbox]").forEach(function (box) {
+    box.addEventListener("change", function () { box.closest("li").classList.toggle("is-done", box.checked); });
+  });
+
+  /* ── 용어 도우미 열기 ───────────────────────────────────── */
+  const glossaryLink = document.getElementById("open-glossary");
+  if (glossaryLink) glossaryLink.addEventListener("click", function () {
+    const g = document.getElementById("glossary");
+    if (g) g.open = true;
+  });
+
+  /* ── CSV 저장 (서버에 결과를 남기지 않으므로 브라우저에서 만든다) ── */
   function cell(v) {
     let s = String(v == null ? "" : v);
-    if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;      // 엑셀 수식 주입 방지
+    if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;   // 엑셀 수식 주입 방지
     return '"' + s.replace(/"/g, '""') + '"';
   }
   const csvBtn = document.getElementById("csv-btn");
   if (csvBtn) csvBtn.addEventListener("click", function () {
-    const rows = [["ip", "위험도", "국가", "통신사(ASN)", "AbuseIPDB 신뢰도", "탐지 유형", "탐지 사유", "요청 수", "60초 최대", "오류 비율(%)", "AI 점수", "의심 구간 시작", "의심 구간 끝", "User-Agent"]];
+    const head = ["IP", "위험도", "나라", "통신사(ASN)", "AbuseIPDB 신뢰도", "찾아낸 행동", "기술적인 설명",
+      "요청 수", "1분 최대 요청", "오류 응답 비율(%)", "AI 점수", "의심 구간 시작", "의심 구간 끝", "User-Agent"];
+    const rows = [head];
     data.ips.forEach(function (ip) {
-      const g = ip.intel.geo || {}, ab = ip.intel.abuse || {};
-      rows.push([ip.ip, ip.level, g.country_name || "", g.asn ? "AS" + g.asn + " " + g.org : "",
+      const g = ip.intel.geo || {};
+      const ab = ip.intel.abuse || {};
+      rows.push([
+        ip.ip, LEVEL_NAME[ip.level], g.country_name || "", g.asn ? "AS" + g.asn + " " + g.org : "",
         ab.score == null ? "" : ab.score,
-        ip.findings.map(function (f) { return f.name; }).join(" / "),
+        ip.findings.map(function (f) { return EASY[f.rule] || f.name; }).join(" / "),
         ip.findings.map(function (f) { return f.reason; }).join(" / "),
-        ip.stats.requests, ip.stats.peak_60s, ip.stats.err_ratio, ip.ml_score,
-        ip.window.start, ip.window.end, ip.stats.agent]);
+        ip.stats.requests, ip.stats.peak_60s, ip.stats.err_ratio, ip.ml_score == null ? "" : ip.ml_score,
+        ip.window.start, ip.window.end, ip.stats.agent,
+      ]);
     });
     const csv = "﻿" + rows.map(function (r) { return r.map(cell).join(","); }).join("\r\n");
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
     a.download = "logguard_result.csv";
+    document.body.appendChild(a);
     a.click();
+    a.remove();
     setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
   });
 
-  // ── 할 일 체크 ────────────────────────────────────
-  document.querySelectorAll(".todo input").forEach(function (box) {
-    box.addEventListener("change", function () { box.closest("li").classList.toggle("done", box.checked); });
-  });
-
-  // ── 용어 도우미 열기 ───────────────────────────────
-  const gl = document.getElementById("open-glossary");
-  if (gl) gl.addEventListener("click", function () { document.getElementById("glossary").open = true; });
-
+  /* ── 인쇄: 모든 항목을 펼친 뒤 인쇄하고 원래대로 되돌린다 ── */
   const printBtn = document.getElementById("print-btn");
   if (printBtn) printBtn.addEventListener("click", function () {
-    document.querySelectorAll(".ip-item").forEach(function (d) { d.open = true; });
+    const closed = Array.prototype.filter.call(document.querySelectorAll("details"), function (d) { return !d.open; });
+    closed.forEach(function (d) { d.open = true; });
+    window.addEventListener("afterprint", function restore() {
+      closed.forEach(function (d) { d.open = false; });
+      window.removeEventListener("afterprint", restore);
+    });
     window.print();
   });
+
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", setupCharts);
+  else setupCharts();
 })();

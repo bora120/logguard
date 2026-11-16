@@ -2,110 +2,126 @@
 {% block title %}분석 결과 · {{ app_name }}{% endblock %}
 {% set s = r.summary %}
 {% set st = r.story %}
+{% set same_day = s.start[:10] == s.end[:10] %}
 {% block content %}
-
-<div class="report-actions">
-  <a class="btn help-link" href="#glossary" id="open-glossary">용어가 어렵다면?</a>
-  <button class="btn" id="csv-btn" type="button">엑셀(CSV)로 저장</button>
-  <button class="btn" id="print-btn" type="button">인쇄·PDF</button>
-  <a class="btn primary" href="/">다른 로그 분석하기</a>
-</div>
+<div class="stack">
 
 <section class="verdict mood-{{ st.mood }}" aria-labelledby="verdict-title">
-  {{ gardi(st.mood, 128, "gardi-bob") }}
+  {{ gardi(st.mood, 120, "gardi-bob") }}
   <div>
     <h1 id="verdict-title">{{ st.headline }}</h1>
     <p class="sub">{{ st.sub }}</p>
-    <ul class="facts">
-      <li>파일 <b>{{ filename }}</b></li>
-      <li>기간 <b>{{ s.start|when }} ~ {{ s.end|clock if s.start[:10] == s.end[:10] else s.end|when }}</b> ({{ s.tz_label }})</li>
-      <li>확인한 접속 <b>{{ s.requests|num }}건</b></li>
-      <li>방문한 곳 <b>{{ s.ips|num }}개 IP</b></li>
-    </ul>
+    <dl class="facts">
+      <div><dt>파일</dt><dd>{{ filename }}</dd></div>
+      <div><dt>기간 <span class="tz">({{ s.tz_label }})</span></dt><dd>{{ s.start|when }} ~ {{ s.end|clock if same_day else s.end|when }}</dd></div>
+      <div><dt>확인한 접속</dt><dd>{{ s.requests|num }}건</dd></div>
+      <div><dt>방문한 곳</dt><dd>{{ s.ips|num }}개 IP</dd></div>
+    </dl>
+    <div class="toolbar">
+      <a class="btn" href="#glossary" id="open-glossary">용어 도우미</a>
+      <button class="btn" id="csv-btn" type="button">엑셀(CSV)로 저장</button>
+      <button class="btn" id="print-btn" type="button">인쇄·PDF</button>
+      <a class="btn btn-primary" href="/">다른 로그 분석하기</a>
+    </div>
   </div>
 </section>
 
-{% if is_sample %}
-<div class="notice">테스트용으로 만든 가상 기록이에요. 평범한 방문자 20명과 공격자 7명(눈에 띄는 공격 4종 + 규칙을 피해 조용히 움직이는 공격 3종)이 섞여 있어요.</div>
-{% endif %}
-{% for w in r.meta.warnings %}<div class="notice">{{ w }}</div>{% endfor %}
-{% if r.intel.abuse_failed %}<div class="notice">AbuseIPDB 확인 {{ r.intel.abuse_failed }}건은 응답이 없어 결과에서 빠졌어요.</div>{% endif %}
-{% if not s.ml_used %}<div class="notice">방문한 곳이 10개보다 적어서 AI 비교는 건너뛰고 규칙으로만 확인했어요.</div>{% endif %}
-
-{% if st.todo %}
-<section class="panel" aria-labelledby="todo-title">
-  <h2 id="todo-title">✅ 지금 해야 할 일</h2>
-  <p class="lead-in">중요한 순서대로 적었어요. 끝낸 일은 체크해 두세요.</p>
-  <ul class="todo">
-    {% for t in st.todo %}
-    <li>
-      <input type="checkbox" aria-label="{{ t.title }} 완료">
-      <span class="ico" aria-hidden="true">{{ t.icon }}</span>
-      <div><b>{{ t.title }}</b><span class="why">{{ t.why }}</span></div>
-      <span class="cnt">관련 IP {{ t.count }}곳</span>
-    </li>
-    {% endfor %}
-  </ul>
-  {% if st.more_todo %}<p class="muted small">이 밖에 {{ st.more_todo }}가지가 더 있어요. 아래 목록에서 확인하세요.</p>{% endif %}
-</section>
-{% endif %}
+{% if is_sample %}<p class="notice">테스트용으로 만든 가상 기록이에요. 평범한 방문자 20명과 공격자 7명(눈에 띄는 공격 4종, 규칙을 피해 조용히 움직이는 공격 3종)이 섞여 있어요.</p>{% endif %}
+{% for w in r.meta.warnings %}<p class="notice">{{ w }}</p>{% endfor %}
+{% if r.intel.abuse_failed %}<p class="notice">AbuseIPDB 확인 {{ r.intel.abuse_failed }}건은 응답이 없어 결과에서 빠졌어요.</p>{% endif %}
+{% if not s.ml_used %}<p class="notice">방문한 곳이 10개보다 적어서 AI 비교는 건너뛰고 규칙으로만 확인했어요.</p>{% endif %}
 
 <section class="levels" aria-label="위험도별 IP 수">
   {% for lv in ["높음", "중간", "낮음"] %}
-  <div class="level-tile lv-{{ lv }}">
+  <div class="level lv-{{ lv }}">
+    <span class="bar" aria-hidden="true"></span>
     <span class="n">{{ s.levels[lv] }}</span>
-    <b>{{ LEVELS[lv].label }}</b>
-    <span>{{ LEVELS[lv].hint }}</span>
+    <div><b>{{ LEVELS[lv].label }}</b><span>{{ LEVELS[lv].hint }}</span></div>
   </div>
   {% endfor %}
 </section>
 
-<section class="grid2">
-  <div class="panel">
-    <h2>시간대별 접속</h2>
-    <p class="howto-read"><span aria-hidden="true">💡</span><span>막대 하나가 {{ r.timeline.freq_label }} 동안의 접속 수예요. 빨간 부분이 높이 솟은 때에 수상한 접속이 몰렸어요.</span></p>
-    <ul class="legend"><li><i class="lg-sus"></i>수상한 접속</li><li><i class="lg-other"></i>그 외 접속</li></ul>
-    <div class="chart-box"><canvas id="timeline" aria-label="시간대별 접속 수 막대그래프"></canvas></div>
+{% if st.todo %}
+<section class="panel" aria-labelledby="todo-title">
+  <div class="panel-head">
+    <h2 id="todo-title">지금 해야 할 일</h2>
+    <p>중요한 순서대로 적었어요. 끝낸 일은 체크해 두세요.</p>
   </div>
-  <div class="panel">
-    <h2>어떤 행동이 많았나요?</h2>
-    <p class="howto-read"><span aria-hidden="true">💡</span><span>행동별로 몇 곳(IP)에서 나타났는지 보여줘요. 한 곳이 여러 행동을 할 수도 있어요.</span></p>
-    <div class="chart-box"><canvas id="rules" aria-label="행동 유형별 IP 수 막대그래프"></canvas></div>
-  </div>
+  <ul class="todo">
+    {% for t in st.todo %}
+    <li>
+      <label>
+        <input type="checkbox">
+        <span><b>{{ t.title }}</b><span class="why">{{ t.why }}</span></span>
+        <span class="cnt">관련 IP {{ t.count }}곳</span>
+      </label>
+    </li>
+    {% endfor %}
+  </ul>
+  {% if st.more_todo %}<p class="todo-more">이 밖에 {{ st.more_todo }}가지가 더 있어요. 아래 목록에서 확인하세요.</p>{% endif %}
 </section>
+{% endif %}
+
+<div class="grid2">
+  <section class="panel" aria-labelledby="tl-title">
+    <div class="panel-head">
+      <h2 id="tl-title">시간대별 접속</h2>
+      <p>막대 하나가 {{ r.timeline.freq_label }} 동안의 접속 수예요. 빨간 부분이 높이 솟은 때에 수상한 접속이 몰렸어요.</p>
+    </div>
+    <ul class="legend"><li><span class="swatch sw-sus"></span>수상한 접속</li><li><span class="swatch sw-other"></span>그 외 접속</li></ul>
+    <div class="chart-box"><canvas id="timeline" role="img" aria-label="시간대별 접속 수 막대그래프"></canvas></div>
+  </section>
+  <section class="panel" aria-labelledby="rule-title">
+    <div class="panel-head">
+      <h2 id="rule-title">어떤 행동이 많았나요?</h2>
+      <p>행동별로 몇 곳(IP)에서 나타났는지 보여줘요. 한 곳이 여러 행동을 할 수도 있어요.</p>
+    </div>
+    {% if st.by_rule %}
+    <div class="chart-box"><canvas id="rules" role="img" aria-label="행동 유형별 IP 수 막대그래프"></canvas></div>
+    {% else %}<p class="empty">찾아낸 행동이 없어요.</p>{% endif %}
+  </section>
+</div>
 
 {% if r.ips %}
-<section class="panel">
-  <h2>언제 활동했나요?</h2>
-  <p class="howto-read"><span aria-hidden="true">💡</span><span>줄 하나가 수상한 IP 하나예요. 막대가 있는 시간에 수상한 행동을 했어요. 막대에 마우스를 올리면 무슨 행동인지 보여요. ({{ s.tz_label }})</span></p>
-  <ul class="legend">{% for lv in ["높음", "중간", "낮음"] %}<li><i class="lg-{{ lv }}"></i>{{ LEVELS[lv].label }}</li>{% endfor %}</ul>
-  <div class="chart-box" id="gantt-box" data-height="{{ [150, 44 + 28 * ([r.ips|length, 25]|min)]|max }}"><canvas id="gantt" aria-label="IP별 활동 시간 그래프"></canvas></div>
+<section class="panel" aria-labelledby="gantt-title">
+  <div class="panel-head">
+    <h2 id="gantt-title">언제 활동했나요?</h2>
+    <p>줄 하나가 수상한 IP 하나예요. 막대가 있는 시간에 수상한 행동을 했어요. 막대에 마우스를 올리면 어떤 행동인지 보여요. ({{ s.tz_label }})</p>
+  </div>
+  <ul class="legend">{% for lv in ["높음", "중간", "낮음"] %}<li><span class="swatch sw-{{ lv }}"></span>{{ LEVELS[lv].label }}</li>{% endfor %}</ul>
+  <div class="chart-box" id="gantt-box" data-rows="{{ [r.ips|length, 25]|min }}"><canvas id="gantt" role="img" aria-label="IP별 활동 시간 그래프"></canvas></div>
 </section>
 {% endif %}
 
 {% if r.intel.geo and r.intel.orgs %}
-<section class="grid2">
-  <div class="panel">
-    <h2>어느 나라에서 왔나요?</h2>
-    <table class="rank">{% for name, n in r.intel.countries %}<tr><td>{{ name }}</td><td class="num">{{ n }}곳</td></tr>{% endfor %}</table>
-  </div>
-  <div class="panel">
-    <h2>어느 통신사·회사 IP인가요?</h2>
-    <p class="muted small">클라우드·데이터센터 IP는 사람보다 프로그램이 접속했을 가능성이 높아요.</p>
-    <table class="rank">{% for name, n in r.intel.orgs %}<tr><td>{{ name }}</td><td class="num">{{ n }}곳</td></tr>{% endfor %}</table>
-  </div>
-</section>
+<div class="grid2">
+  <section class="panel" aria-labelledby="geo-title">
+    <div class="panel-head"><h2 id="geo-title">어느 나라에서 왔나요?</h2></div>
+    <table class="rank"><tbody>{% for name, n in r.intel.countries %}<tr><td>{{ name }}</td><td class="num">{{ n }}곳</td></tr>{% endfor %}</tbody></table>
+  </section>
+  <section class="panel" aria-labelledby="org-title">
+    <div class="panel-head">
+      <h2 id="org-title">어느 통신사·회사 IP인가요?</h2>
+      <p>클라우드·데이터센터 IP는 사람보다 프로그램이 접속했을 가능성이 높아요.</p>
+    </div>
+    <table class="rank"><tbody>{% for name, n in r.intel.orgs %}<tr><td>{{ name }}</td><td class="num">{{ n }}곳</td></tr>{% endfor %}</tbody></table>
+  </section>
+</div>
 {% endif %}
 
 <section class="panel" aria-labelledby="list-title">
-  <div class="section-head">
-    <h2 id="list-title">수상한 접속 목록 <span class="count">{{ r.ips|length }}</span></h2>
-    <div class="filters" role="group" aria-label="위험도로 거르기">
-      <button type="button" class="chip active" data-level="all">전체</button>
-      {% for lv in ["높음", "중간", "낮음"] %}<button type="button" class="chip" data-level="{{ lv }}">{{ LEVELS[lv].label }}</button>{% endfor %}
+  <div class="panel-head row">
+    <div>
+      <h2 id="list-title">수상한 접속 목록<span class="count">{{ r.ips|length }}</span></h2>
+      <p>눌러서 펼치면 무슨 일이 있었는지, 무엇을 하면 되는지 볼 수 있어요.</p>
     </div>
+    {% if r.ips %}
+    <div class="filters" role="group" aria-label="위험도로 거르기">
+      <button type="button" class="chip" data-level="all" aria-pressed="true">전체</button>
+      {% for lv in ["높음", "중간", "낮음"] %}<button type="button" class="chip" data-level="{{ lv }}" aria-pressed="false">{{ LEVELS[lv].label }}</button>{% endfor %}
+    </div>
+    {% endif %}
   </div>
-  <p class="lead-in">눌러서 펼치면 무슨 일이 있었는지, 무엇을 하면 되는지 볼 수 있어요.</p>
 
   {% if not r.ips %}<p class="empty">수상한 접속이 없어요. 평소처럼 운영하셔도 돼요.</p>{% endif %}
 
@@ -114,28 +130,28 @@
     <details class="ip-item" data-level="{{ ip.level }}"{% if loop.first %} open{% endif %}>
       <summary>
         <span class="badge lv-{{ ip.level }}">{{ LEVELS[ip.level].label }}</span>
-        <span class="ip">{{ ip.ip }}{% if g and g.country_name %}<span class="geo">{{ g.country_name }}{% if g.scope == "데이터센터·클라우드" %} · 데이터센터{% endif %}</span>{% endif %}</span>
-        <span class="tags">{% for f in ip.findings %}{% set x = RULES[f.rule] %}<span class="tag"><span aria-hidden="true">{{ x.icon }}</span>{{ x.easy }}</span>{% endfor %}</span>
-        <span class="ip-meta">접속 {{ ip.stats.requests|num }}번<span class="chev" aria-hidden="true">›</span></span>
+        <span class="ip">{{ ip.ip }}{% if g and g.country_name %}<small>{{ g.country_name }}{% if g.scope == "데이터센터·클라우드" %}, 데이터센터{% endif %}</small>{% endif %}</span>
+        <span class="tags">{% for f in ip.findings %}<span class="tag">{{ RULES[f.rule].easy }}</span>{% endfor %}</span>
+        <span class="ip-meta">접속 {{ ip.stats.requests|num }}번{{ chevron() }}</span>
       </summary>
       <div class="ip-body">
         <div class="findings">
           {% for f in ip.findings %}{% set x = RULES[f.rule] %}
-          <div class="finding">
+          <article class="finding lv-{{ f.level }}">
             <div class="finding-head">
-              <span aria-hidden="true">{{ x.icon }}</span><b>{{ x.easy }}</b>
-              <span class="badge small lv-{{ f.level }}">{{ LEVELS[f.level].label }}</span>
-              {% if f.start %}<span class="muted small">{{ f.start|when }} ~ {{ f.end|clock }}</span>{% endif %}
+              <h3>{{ x.easy }}</h3>
+              <span class="badge lv-{{ f.level }}">{{ LEVELS[f.level].label }}</span>
+              {% if f.start %}<time datetime="{{ f.start }}">{{ f.start|when }} ~ {{ f.end|clock }}</time>{% endif %}
             </div>
             <p class="what">{{ x.what }}</p>
-            <p class="like"><span aria-hidden="true">🐾</span><span>{{ x.like }}</span></p>
-            <p class="do"><b>이렇게 하세요</b>{{ x.todo }}</p>
+            <p class="like"><span class="label">비유하면</span>{{ x.like }}</p>
+            <p class="do"><span class="label">할 일</span>{{ x.todo }}</p>
             <details class="tech">
-              <summary>기술적으로 보면</summary>
+              <summary>기술적인 설명 보기</summary>
               <p>{{ f.reason }}</p>
               <p>{{ f.action }}</p>
             </details>
-          </div>
+          </article>
           {% endfor %}
         </div>
 
@@ -151,66 +167,69 @@
           {% endif %}
           {% if ip.bot %}<div><dt>검색 로봇 확인</dt><dd>{{ {"검증됨": "진짜 검색 로봇이에요", "사칭": "가짜 검색 로봇이에요", "미검증": "확인하지 못했어요"}[ip.bot] }}</dd></div>{% endif %}
           {% set ab = ip.intel.abuse %}
-          {% if ab %}<div><dt>다른 곳의 신고 기록</dt><dd>신고 {{ ab.reports|num }}건 · 공격자일 가능성 {{ ab.score }}%</dd></div>{% endif %}
-          {% if ip.ml_score is not none %}<div><dt>AI 이상 점수</dt><dd>{{ ip.ml_score }} <span class="muted small">(높을수록 특이)</span></dd></div>{% endif %}
-          {% if ip.stats.agent %}<div class="wide"><dt>사용한 프로그램(User-Agent)</dt><dd class="mono">{{ ip.stats.agent }}</dd></div>{% endif %}
+          {% if ab %}<div><dt>다른 곳의 신고 기록</dt><dd>신고 {{ ab.reports|num }}건, 공격자일 가능성 {{ ab.score }}%</dd></div>{% endif %}
+          {% if ip.ml_score is not none %}<div><dt>AI 이상 점수 (높을수록 특이)</dt><dd>{{ ip.ml_score }}</dd></div>{% endif %}
+          {% if ip.stats.agent %}<div class="wide"><dt>사용한 프로그램 (User-Agent)</dt><dd>{{ ip.stats.agent }}</dd></div>{% endif %}
         </dl>
 
-        <h4>실제로 보낸 요청 몇 개</h4>
+        <h3 class="sub-title">실제로 보낸 요청 몇 개</h3>
         <div class="table-wrap">
           <table class="req">
-            <thead><tr><th>시간</th><th>연 주소</th><th>서버의 대답</th></tr></thead>
+            <thead><tr><th scope="col">시간</th><th scope="col">연 주소</th><th scope="col">서버의 대답</th></tr></thead>
             <tbody>
-            {% for q in ip.samples %}
-              <tr><td>{{ q.time|clock }}</td><td class="url">{{ q.url }}</td>
-                  <td><span class="status s{{ q.status // 100 }}">{{ q.status }}<small>{{ STATUS_CODES.get((q.status // 100)|string, "") }}</small></span></td></tr>
+            {% for q in ip.samples %}{% set cls = (q.status // 100)|string %}
+              <tr><td>{{ q.time|clock }}</td><td class="url">{{ q.url_dec }}{% if q.url_dec != q.url %}<small class="raw">원래 기록: {{ q.url }}</small>{% endif %}</td>
+                  <td class="status"><b class="s{{ cls }}">{{ q.status }}</b><span>{{ STATUS_CODES.get(cls, "") }}</span></td></tr>
             {% endfor %}
             </tbody>
           </table>
         </div>
-        <p class="block-tip">이 IP를 막고 싶다면: <code>sudo ufw deny from {{ ip.ip }}</code> (여러 사람이 같이 쓰는 IP일 수도 있으니 확인한 뒤에 막아 주세요)</p>
+        <p class="block-tip">이 IP를 막고 싶다면 서버에서 <code>sudo ufw deny from {{ ip.ip }}</code>를 실행하세요. 여러 사람이 같이 쓰는 IP일 수도 있으니 먼저 확인해 주세요.</p>
       </div>
     </details>
   {% endfor %}
   </div>
-  {% if r.truncated_ips %}<p class="muted small">위험한 순서로 {{ r.ips|length }}곳만 보여줘요. 나머지 {{ r.truncated_ips }}곳은 생략했어요.</p>{% endif %}
+  {% if r.truncated_ips %}<p class="meta-line">위험한 순서로 {{ r.ips|length }}곳만 보여줘요. 나머지 {{ r.truncated_ips }}곳은 생략했어요.</p>{% endif %}
 </section>
 
-<section class="grid2">
-  <div class="panel">
-    <h2>가장 많이 열린 주소</h2>
-    <table class="rank">{% for u in r.top_urls %}<tr><td class="url">{{ u.url }}</td><td class="num">{{ u.count|num }}번</td></tr>{% endfor %}</table>
-  </div>
-  <div class="panel">
-    <h2>없는 페이지(404)를 찾은 주소</h2>
-    <p class="muted small">원래 없는 주소를 자꾸 찾는다면 누군가 숨겨진 파일을 뒤지고 있을 수 있어요.</p>
+<div class="grid2">
+  <section class="panel" aria-labelledby="url-title">
+    <div class="panel-head"><h2 id="url-title">가장 많이 열린 주소</h2></div>
+    <table class="rank"><tbody>{% for u in r.top_urls %}<tr><td class="url">{{ u.url }}</td><td class="num">{{ u.count|num }}번</td></tr>{% endfor %}</tbody></table>
+  </section>
+  <section class="panel" aria-labelledby="nf-title">
+    <div class="panel-head">
+      <h2 id="nf-title">없는 페이지(404)를 찾은 주소</h2>
+      <p>원래 없는 주소를 자꾸 찾는다면 누군가 숨겨진 파일을 뒤지고 있을 수 있어요.</p>
+    </div>
     {% if r.top_404 %}
-    <table class="rank">{% for u in r.top_404 %}<tr><td class="url">{{ u.url }}</td><td class="num">{{ u.count|num }}번</td></tr>{% endfor %}</table>
+    <table class="rank"><tbody>{% for u in r.top_404 %}<tr><td class="url">{{ u.url }}</td><td class="num">{{ u.count|num }}번</td></tr>{% endfor %}</tbody></table>
     {% else %}<p class="empty">없는 페이지를 찾은 접속이 없어요.</p>{% endif %}
-  </div>
-</section>
+  </section>
+</div>
 
-<section class="panel">
-  <h2>서버는 어떻게 대답했나요?</h2>
-  <div class="status-row">
+<section class="panel" aria-labelledby="status-title">
+  <div class="panel-head"><h2 id="status-title">서버는 어떻게 대답했나요?</h2></div>
+  <div class="status-grid">
     {% for code, n in s.status.items() %}
-    <div class="status-pill"><b class="s{{ code[0] }}">{{ code }}</b>{{ n|num }}번<span>{{ STATUS_CODES.get(code[0], "") }}</span></div>
+    <div class="status-card"><b class="s{{ code[0] }}">{{ code }}</b>{{ n|num }}번<span>{{ STATUS_CODES.get(code[0], "") }}</span></div>
     {% endfor %}
   </div>
-  <p class="muted small">전체 {{ r.meta.total_lines|num }}줄 중 {{ r.meta.parsed|num }}줄을 분석했어요.{% if r.meta.skipped %} 형식이 맞지 않는 {{ r.meta.skipped|num }}줄은 뺐어요.{% endif %}
-    기록 형식: {{ format_labels.get(r.meta.format, r.meta.format) }}, IP 기준: {{ "X-Forwarded-For" if r.meta.ip_source == "xff" else "접속 주소" }}</p>
+  <p class="meta-line">전체 {{ r.meta.total_lines|num }}줄 중 {{ r.meta.parsed|num }}줄을 분석했어요.{% if r.meta.skipped %} 형식이 맞지 않는 {{ r.meta.skipped|num }}줄은 뺐어요.{% endif %}
+    기록 형식은 {{ format_labels.get(r.meta.format, r.meta.format) }}, IP 기준은 {{ "X-Forwarded-For" if r.meta.ip_source == "xff" else "접속 주소" }}예요.</p>
 </section>
 
 <section class="panel">
   <details class="glossary" id="glossary">
-    <summary><span aria-hidden="true">📖</span> 용어 도우미</summary>
+    <summary><h2>용어 도우미</h2>{{ chevron() }}</summary>
     <dl>{% for term, desc in GLOSSARY %}<div><dt>{{ term }}</dt><dd>{{ desc }}</dd></div>{% endfor %}</dl>
   </details>
 </section>
 
+</div>
 <script type="application/json" id="report-data">{{ r|tojson }}</script>
 {% endblock %}
 {% block scripts %}
-<script src="/static/vendor/chart.umd.min.js"></script>
-<script src="/static/report.js"></script>
+<script src="/static/vendor/chart.umd.min.js" defer></script>
+<script src="/static/report.js" defer></script>
 {% endblock %}
