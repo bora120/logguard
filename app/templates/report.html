@@ -228,6 +228,6 @@
 <script type="application/json" id="report-data">{{ r|tojson }}</script>
 {% endblock %}
 {% block scripts %}
-<script src="/static/vendor/chart.umd.min.js" defer></script>
-<script src="/static/report.js" defer></script>
+<script src="{{ "/static/vendor/chart.umd.min.js"|asset }}" defer></script>
+<script src="{{ "/static/report.js"|asset }}" defer></script>
 {% endblock %}

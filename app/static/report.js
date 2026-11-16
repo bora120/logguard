@@ -37,7 +37,7 @@
     C.defaults.maintainAspectRatio = false;
     Object.assign(C.defaults.plugins.tooltip, {
       backgroundColor: "#25222A", padding: 10, cornerRadius: 8, boxPadding: 4,
-      titleFont: { weight: "600", size: 13 },
+      titleFont: { weight: "normal", size: 14 }, bodyFont: { weight: "normal", size: 13 },
     });
     C.defaults.plugins.legend.display = false;   // 범례는 HTML로 그린다
 

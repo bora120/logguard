@@ -6,9 +6,11 @@ LogGuard 웹 서비스
 """
 from __future__ import annotations
 
+import hashlib
 import threading
 import time
 from collections import defaultdict, deque
+from functools import lru_cache
 from pathlib import Path
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
@@ -47,6 +49,21 @@ def _when(iso: str, with_date: bool = True) -> str:
 templates.env.filters["when"] = _when
 templates.env.filters["clock"] = lambda iso: _when(iso, False)
 templates.env.filters["num"] = lambda n: f"{n:,}"
+
+
+@lru_cache(maxsize=64)
+def _asset(path: str) -> str:
+    """'/static/style.css' → '/static/style.css?v=<내용 해시>'.
+    파일 내용이 바뀌면 주소도 바뀌어서, 브라우저가 예전 CSS·JS를 붙잡고 있지 않는다."""
+    f = BASE / path.removeprefix("/").split("?")[0]
+    try:
+        digest = hashlib.sha256(f.read_bytes()).hexdigest()[:10]
+    except OSError:
+        return path
+    return f"{path}?v={digest}"
+
+
+templates.env.filters["asset"] = _asset
 
 _slots = threading.BoundedSemaphore(config.MAX_CONCURRENT)
 _hits: dict[str, deque] = defaultdict(deque)

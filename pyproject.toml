@@ -1,6 +1,6 @@
 [project]
 name = "logguard"
-version = "2.6.0"
+version = "2.7.0"
 description = "웹 서버 접속 로그 이상 행위 탐지 (규칙 + AI + 위협 정보)"
 requires-python = ">=3.12"
 # Vercel 은 pyproject.toml 을 requirements.txt 보다 우선해서 읽으므로 실행에 필요한 패키지를 여기에 적는다.

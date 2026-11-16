@@ -305,11 +305,25 @@ def test_cache_headers(client):
 
 
 def test_display_font_covers_all_ui_text():
-    """제목용 손글씨 글꼴에 없는 한글 글자를 화면 문구에 쓰지 않았는지 확인한다."""
+    """사이트 글꼴(온글잎 콘콘체)에 없는 한글 글자를 화면 문구에 쓰지 않았는지 확인한다."""
     import glob
     from fontTools.ttLib import TTFont
     cmap = TTFont(ROOT / "app/static/vendor/ownglyph-corncorn/OwnglyphCorncorn-Rg.ttf").getBestCmap()
-    files = glob.glob(str(ROOT / "app/templates/*.html")) + [str(ROOT / "app/explain.py")]
+    files = (glob.glob(str(ROOT / "app/templates/*.html")) + glob.glob(str(ROOT / "app/*.py"))
+             + glob.glob(str(ROOT / "app/engine/*.py")) + glob.glob(str(ROOT / "app/static/*.js")))
     missing = {ch for f in files for ch in open(f, encoding="utf-8").read()
                if 0xAC00 <= ord(ch) <= 0xD7A3 and ord(ch) not in cmap}
     assert not missing, f"글꼴에 없는 글자: {''.join(sorted(missing))}"
+
+
+def test_static_assets_are_cache_busted():
+    """CSS·JS 주소에 내용 해시가 붙어 있어야, 업데이트 뒤 예전 디자인이 캐시로 남지 않는다."""
+    import re
+    from fastapi.testclient import TestClient
+    from app.main import app
+    c = TestClient(app)
+    html = c.get("/").text
+    m = re.search(r'href="(/static/style\.css\?v=[0-9a-f]{10})"', html)
+    assert m, "style.css에 버전 해시가 없어요"
+    assert c.get(m.group(1)).status_code == 200
+    assert re.search(r'src="/static/upload\.js\?v=[0-9a-f]{10}"', html)

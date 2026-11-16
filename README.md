@@ -126,10 +126,9 @@ pytest -q
 
 ## 사용한 오픈소스 자원
 
-- 제목 글꼴: 온글잎 콘콘체 ((주)보이저엑스) — `app/static/vendor/ownglyph-corncorn/`
+- 글꼴: 온글잎 콘콘체 ((주)보이저엑스) — `app/static/vendor/ownglyph-corncorn/` (사이트 전체)
   - 웹사이트 사용·서버 탑재(임베딩)·상업적 이용 가능, **파일 수정·재배포 불가(OFL 아님)**
   - 그래서 원본 TTF를 수정하지 않고 그대로 쓰며, **GitHub 저장소는 비공개(Private)로 두는 것을 권장**합니다. 자세한 내용은 폴더 안 `LICENSE.md` 참고
-- 본문 글꼴: [Pretendard](https://github.com/orioncactus/pretendard) (SIL Open Font License 1.1) — `app/static/vendor/pretendard/`
 - 그래프: [Chart.js](https://www.chartjs.org) (MIT) — `app/static/vendor/chart.umd.min.js`
 - IP 국가·ASN: [DB-IP Lite](https://db-ip.com) (CC BY 4.0) — `app/data/`
 
