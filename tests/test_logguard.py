@@ -124,7 +124,7 @@ def test_xss_in_log_is_escaped(client):
 def test_bad_file_shows_error(client):
     res = client.post("/analyze", files={"file": ("a.txt", b"not a log")})
     assert res.status_code == 400
-    assert "인식되지 않습니다" in res.text
+    assert "읽을 수 없는 파일이에요" in res.text
 
 
 def test_rate_limit(client, monkeypatch):
@@ -297,3 +297,19 @@ def test_decoded_url_is_still_escaped(client):
     assert res.status_code == 200
     assert "<script>alert(9)" not in res.text
     assert "&lt;script&gt;alert(9)" in res.text
+
+
+def test_cache_headers(client):
+    assert client.get("/").headers["cache-control"] == "no-store"
+    assert "max-age" in client.get("/static/style.css").headers["cache-control"]
+
+
+def test_display_font_covers_all_ui_text():
+    """제목용 손글씨 글꼴에 없는 한글 글자를 화면 문구에 쓰지 않았는지 확인한다."""
+    import glob
+    from fontTools.ttLib import TTFont
+    cmap = TTFont(ROOT / "app/static/vendor/ownglyph-corncorn/OwnglyphCorncorn-Rg.ttf").getBestCmap()
+    files = glob.glob(str(ROOT / "app/templates/*.html")) + [str(ROOT / "app/explain.py")]
+    missing = {ch for f in files for ch in open(f, encoding="utf-8").read()
+               if 0xAC00 <= ord(ch) <= 0xD7A3 and ord(ch) not in cmap}
+    assert not missing, f"글꼴에 없는 글자: {''.join(sorted(missing))}"

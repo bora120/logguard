@@ -30,13 +30,14 @@
     if (!window.Chart) return;
     const C = window.Chart;
     C.defaults.font.family = getComputedStyle(document.body).fontFamily;
-    C.defaults.font.size = 12;
+    C.defaults.font.size = 12.5;
+    C.defaults.font.weight = "normal";
     C.defaults.color = COLOR.tick;
     C.defaults.animation = false;
     C.defaults.maintainAspectRatio = false;
     Object.assign(C.defaults.plugins.tooltip, {
       backgroundColor: "#25222A", padding: 10, cornerRadius: 8, boxPadding: 4,
-      titleFont: { weight: "600" },
+      titleFont: { weight: "600", size: 13 },
     });
     C.defaults.plugins.legend.display = false;   // 범례는 HTML로 그린다
 

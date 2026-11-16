@@ -114,7 +114,7 @@ def compile_format(fmt: str) -> re.Pattern:
     out.append(re.escape(tail).replace("\\ ", " ").replace(" ", r"\s+"))
     missing = {"ip", "request", "status"} - used
     if missing or not ({"time", "time_iso"} & used):
-        raise LogFormatError("로그 형식에 접속 IP, 시간, 요청($request 또는 %r), 상태 코드가 모두 있어야 합니다.")
+        raise LogFormatError("로그 형식에 접속 IP, 시간, 요청($request 또는 %r), 상태 코드가 모두 있어야 해요.")
     return re.compile("^" + "".join(out))
 
 
@@ -131,14 +131,14 @@ def _open_text(raw: io.BufferedIOBase) -> io.TextIOBase:
 def _detect(lines: list[str], custom: re.Pattern | None) -> tuple[str, re.Pattern]:
     sample = [ln for ln in lines if ln.strip()][:DETECT_SAMPLE_LINES]
     if not sample:
-        raise LogFormatError("파일이 비어 있습니다.")
+        raise LogFormatError("파일이 비어 있어요.")
     candidates = [("custom", custom)] if custom else list(PRESET_RE.items())
     for name, rx in candidates:
         if sum(bool(rx.match(ln)) for ln in sample) / len(sample) >= DETECT_MIN_RATIO:
             return name, rx
     if custom:
-        raise LogFormatError("입력한 로그 형식과 파일 내용이 맞지 않습니다. 서버 설정의 LogFormat/log_format 을 그대로 복사했는지 확인해 주세요.")
-    raise LogFormatError("Apache/Nginx 접속 로그로 인식되지 않습니다. 형식을 바꿔 쓰고 있다면 '고급 설정'에 로그 형식을 입력해 주세요.")
+        raise LogFormatError("입력한 로그 형식과 파일 내용이 맞지 않아요. 서버 설정의 LogFormat 또는 log_format 값을 그대로 붙여넣었는지 확인해 주세요.")
+    raise LogFormatError("Apache·Nginx 접속 기록으로 읽을 수 없는 파일이에요. 기록 형식을 바꿔 쓰고 있다면 ‘고급 설정’에 로그 형식을 넣어 주세요.")
 
 
 def _first_ip(xff: str) -> str:
@@ -173,12 +173,12 @@ def parse_stream(raw: io.BufferedIOBase, max_bytes: int, max_lines: int,
         for line in _open_text(raw):
             read_bytes += len(line)
             if read_bytes > max_bytes:
-                raise LogTooLargeError(f"압축을 푼 로그가 {max_bytes // (1024 * 1024)}MB를 넘습니다.")
+                raise LogTooLargeError(f"압축을 푼 기록이 {max_bytes // (1024 * 1024)}MB를 넘어서 분석할 수 없어요. 날짜별로 나눠서 올려 주세요.")
             if not line.strip():
                 continue
             total += 1
             if total > max_lines:
-                raise LogTooLargeError(f"로그가 {max_lines:,}줄을 넘습니다.")
+                raise LogTooLargeError(f"기록이 {max_lines:,}줄을 넘어서 분석할 수 없어요. 날짜별로 나눠서 올려 주세요.")
             if fmt is None:
                 head.append(line)
                 if len(head) >= DETECT_SAMPLE_LINES:
@@ -192,7 +192,7 @@ def parse_stream(raw: io.BufferedIOBase, max_bytes: int, max_lines: int,
             for h in head:
                 handle(h)
     except (gzip.BadGzipFile, EOFError, OSError) as e:
-        raise LogFormatError(f"압축 파일을 읽을 수 없습니다: {e}") from e
+        raise LogFormatError("압축 파일을 풀 수 없어요. 파일이 손상되지 않았는지 확인해 주세요.") from e
 
     df = pd.DataFrame(rows)
     for col in ("referer", "agent", "xff", "size"):
@@ -210,9 +210,9 @@ def parse_stream(raw: io.BufferedIOBase, max_bytes: int, max_lines: int,
             df["peer"] = df["ip"]
             df["ip"] = xff_ip.where(xff_ip != "", df["ip"])
             used_xff = "xff"
-            warnings.append(f"X-Forwarded-For 의 실제 접속자 IP 기준으로 분석했습니다. (요청의 {xff_share:.0%}에 값이 있음)")
+            warnings.append(f"X-Forwarded-For에 적힌 실제 접속자 IP로 분석했어요. (요청의 {xff_share:.0%}에 값이 있었어요)")
         elif ip_source == "xff":
-            warnings.append("X-Forwarded-For 값이 없어 접속 주소 기준으로 분석했습니다.")
+            warnings.append("X-Forwarded-For 값이 없어서 접속 주소로 분석했어요.")
 
     # 시간
     if "time_iso" in df:
@@ -228,11 +228,11 @@ def parse_stream(raw: io.BufferedIOBase, max_bytes: int, max_lines: int,
     df = df[["ip", "time", "method", "url", "status", "size", "referer", "agent"]].reset_index(drop=True)
 
     if not (df["agent"] != "").any():
-        warnings.append("User-Agent 정보가 없어 '공격 도구 사용'·검색봇 판별은 건너뜁니다.")
+        warnings.append("사용한 프로그램(User-Agent) 정보가 없는 기록이라 ‘해킹 도구 사용’과 ‘검색 로봇인 척’은 확인하지 못했어요.")
     if total and skipped / total > 0.2:
-        warnings.append(f"전체 {total:,}줄 중 {skipped:,}줄은 형식이 맞지 않아 제외했습니다.")
+        warnings.append(f"전체 {total:,}줄 중 {skipped:,}줄은 형식이 맞지 않아서 뺐어요.")
     if df.empty:
-        raise LogFormatError("분석할 수 있는 요청이 없습니다.")
+        raise LogFormatError("분석할 수 있는 접속 기록이 없어요.")
 
     return ParseResult(df=df, fmt=fmt, total_lines=total, parsed=len(df), skipped=skipped,
                        ip_source=used_xff, warnings=warnings)

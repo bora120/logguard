@@ -13,7 +13,7 @@ LogGuard는 두 가지 방법으로 배포할 수 있습니다.
 
 이 저장소에는 Vercel 설정(`pyproject.toml`의 `[tool.vercel]`, `vercel.json`, `.python-version`)이 들어 있어 추가 설정 없이 배포됩니다.
 
-1. GitHub에 저장소를 올립니다.
+1. GitHub에 저장소를 올립니다. 제목 글꼴(온글잎 콘콘체)은 파일 재배포가 허용되지 않으므로 저장소를 **비공개(Private)**로 두세요. (GitHub → 저장소 → Settings → General → Danger Zone → Change visibility) Vercel은 비공개 저장소도 연결할 수 있어요.
 2. https://vercel.com 에서 **Continue with GitHub** 로 가입·로그인합니다.
 3. **Add New… → Project** → `logguard` 저장소 옆 **Import**
 4. Framework Preset 이 **FastAPI** 로 잡혔는지 확인합니다. (Build/Output 설정은 비워둡니다)

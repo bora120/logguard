@@ -1,15 +1,12 @@
 {% extends "base.html" %}
 {% block content %}
 <section class="hero" aria-labelledby="hero-title">
-  {{ gardi("calm", 128, "gardi-bob") }}
-  <div>
-    <h1 id="hero-title">서버 방문 기록을 올리면<br>수상한 방문자를 찾아드려요</h1>
-    <p>비밀번호를 마구 넣어보는 접속, 숨겨진 파일을 뒤지는 접속, 해킹 명령어를 섞어 보내는 접속까지. 보안을 몰라도 읽을 수 있게 쉬운 말로 알려드려요.</p>
-  </div>
+  {{ gardi("calm", 112, "gardi-bob") }}
+  <h1 id="hero-title">서버 방문 기록을 올리면<br>수상한 방문자를 찾아드려요</h1>
+  <p>비밀번호를 마구 넣어보는 접속, 숨겨진 파일을 뒤지는 접속, 해킹 명령어를 섞어 보내는 접속까지. 보안을 몰라도 읽을 수 있게 쉬운 말로 알려드려요.</p>
 </section>
 
-<div class="upload-row">
-<div class="stack">
+<div class="narrow stack">
   {% if error %}
   <p class="alert" role="alert"><strong>분석하지 못했어요.</strong> {{ error }}</p>
   {% endif %}
@@ -58,25 +55,22 @@
       <button class="btn btn-primary" type="submit" id="submit-btn">수상한 접속 찾기</button>
     </form>
   </section>
-</div>
 
-<aside class="panel side" aria-label="처음이라면">
-  <h2>처음이라면</h2>
-  <p>로그 파일이 없어도 괜찮아요. 가상 기록으로 만든 결과를 먼저 둘러보세요.</p>
-  <div class="side-actions">
+  <div class="try">
+    <span>로그 파일이 없다면</span>
     <a class="btn" href="/sample">샘플 보고서 보기</a>
     <a class="btn" href="/sample/download">샘플 로그 받기</a>
   </div>
-  <dl class="side-facts">
-    <div><dt>읽을 수 있는 기록</dt><dd>Apache·Nginx 접속 기록, 압축 파일(.gz)</dd></div>
-    <div><dt>올린 파일은</dt><dd>저장하지 않고 분석이 끝나면 바로 지워요</dd></div>
-    <div><dt>걸리는 시간</dt><dd>보통 몇 초, 큰 파일은 20초 안팎</dd></div>
-  </dl>
-</aside>
 </div>
 
+<ul class="promises narrow" aria-label="이용 안내">
+  <li><b>Apache, Nginx 기록</b><span>압축 파일(.gz)도 그대로 올리면 돼요</span></li>
+  <li><b>저장하지 않아요</b><span>분석이 끝나면 올린 파일을 바로 지워요</span></li>
+  <li><b>몇 초면 끝나요</b><span>아주 큰 파일도 20초 안팎이에요</span></li>
+</ul>
+
 <section class="section" aria-labelledby="how">
-  <h2 id="how">이렇게 사용해요</h2>
+  <div class="section-head"><h2 id="how">이렇게 사용해요</h2></div>
   <ol class="steps">
     <li><h3>로그 파일 가져오기</h3><p>웹 서버에 쌓인 접속 기록 파일(access.log)을 내 컴퓨터로 받아요.</p></li>
     <li><h3>여기에 올리기</h3><p>파일을 위 칸에 끌어다 놓고 ‘수상한 접속 찾기’를 눌러요.</p></li>
@@ -85,7 +79,10 @@
 </section>
 
 <section class="section" aria-labelledby="finds">
-  <h2 id="finds">이런 행동을 찾아요</h2>
+  <div class="section-head">
+    <h2 id="finds">이런 행동을 찾아요</h2>
+    <p>규칙 7가지로 뚜렷한 공격을 찾고, AI가 규칙을 피해 조용히 움직인 접속까지 골라내요.</p>
+  </div>
   <ul class="finds">
     {% for key in ["R6", "R3", "R5", "R2", "R1", "R4", "R7", "AI", "TI"] %}{% set x = RULES[key] %}
     <li><h3>{{ x.easy }}</h3><p>{{ x.short }}</p></li>
@@ -94,10 +91,13 @@
 </section>
 
 <section class="section" aria-labelledby="whatis">
+  <div class="section-head">
+    <h2 id="whatis">로그 파일이 뭐예요?</h2>
+    <p>웹사이트에 누가, 언제, 어떤 페이지를 열었는지 한 줄씩 적어두는 기록이에요. 가게의 방문자 명부라고 생각하면 돼요.</p>
+  </div>
   <div class="panel whatis">
     <div>
-      <h2 id="whatis">로그 파일이 뭐예요?</h2>
-      <p>웹사이트에 누가, 언제, 어떤 페이지를 열었는지 한 줄씩 적어두는 기록이에요. 가게의 방문자 명부라고 생각하면 돼요. 한 줄은 이렇게 생겼어요.</p>
+      <h3>한 줄은 이렇게 생겼어요</h3>
       <code class="code-line">203.0.113.7 - - [16/Nov/2026:15:15:30 +0900] "GET /login HTTP/1.1" 200 512 "-" "Mozilla/5.0"</code>
       <p class="muted small">접속한 곳(IP), 시간, 연 페이지, 서버의 대답(200은 ‘정상’), 사용한 프로그램 순서예요.</p>
     </div>

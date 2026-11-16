@@ -65,7 +65,11 @@ async def security_headers(request: Request, call_next):
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "no-referrer"
     response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
-    response.headers["Cache-Control"] = "no-store"
+    if request.url.path.startswith("/static/"):
+        # 글꼴·그래프 라이브러리처럼 잘 바뀌지 않는 파일은 브라우저가 하루 동안 다시 받지 않게 한다
+        response.headers.setdefault("Cache-Control", "public, max-age=86400")
+    else:
+        response.headers["Cache-Control"] = "no-store"   # 분석 결과 페이지는 캐시에 남기지 않는다
     return response
 
 
@@ -83,7 +87,7 @@ def _rate_limited(client: str) -> bool:
 
 def _run(parse_fn, use_abuse: bool = False):
     if not _slots.acquire(timeout=30):
-        raise HTTPException(503, "지금 분석 요청이 많습니다. 잠시 후 다시 시도해 주세요.")
+        raise HTTPException(503, "지금 분석 요청이 많아요. 잠시 뒤에 다시 시도해 주세요.")
     try:
         parsed = parse_fn()
         result = analyze(parsed.df, parsed.fmt,
@@ -113,12 +117,12 @@ def _analyze_upload(request: Request, file: UploadFile, log_format: str = "",
     client = _client_ip(request)
     if _rate_limited(client):
         raise HTTPException(429, f"분석은 {config.RATE_LIMIT_WINDOW // 60}분에 "
-                                 f"{config.RATE_LIMIT_COUNT}회까지 가능합니다.")
+                                 f"{config.RATE_LIMIT_COUNT}번까지 할 수 있어요. 잠시 뒤에 다시 시도해 주세요.")
     if file.size is not None and file.size > config.MAX_UPLOAD_MB * 1024 * 1024:
-        raise HTTPException(413, f"파일은 압축 후 {config.MAX_UPLOAD_MB}MB까지 올릴 수 있습니다. "
+        raise HTTPException(413, f"파일은 압축한 뒤 {config.MAX_UPLOAD_MB}MB까지 올릴 수 있어요. "
                                  "로그를 날짜별로 나누거나 CLI 버전으로 분석해 주세요.")
     if len(log_format) > config.MAX_FORMAT_LEN:
-        raise HTTPException(400, "로그 형식 문자열이 너무 깁니다.")
+        raise HTTPException(400, "로그 형식이 너무 길어요. 500자 안으로 넣어 주세요.")
     if ip_source not in ("auto", "remote", "xff"):
         ip_source = "auto"
     try:
@@ -190,6 +194,6 @@ def healthz():
 async def http_error(request: Request, exc: HTTPException):
     if request.url.path.startswith("/api/"):
         return JSONResponse({"error": str(exc.detail)}, status_code=exc.status_code)
-    detail = "페이지를 찾을 수 없습니다." if exc.status_code == 404 else exc.detail
+    detail = "페이지를 찾을 수 없어요." if exc.status_code == 404 else exc.detail
     return templates.TemplateResponse(request, "index.html", {"error": detail},
                                       status_code=exc.status_code)

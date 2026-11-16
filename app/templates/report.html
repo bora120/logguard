@@ -7,22 +7,20 @@
 <div class="stack">
 
 <section class="verdict mood-{{ st.mood }}" aria-labelledby="verdict-title">
-  {{ gardi(st.mood, 120, "gardi-bob") }}
-  <div>
-    <h1 id="verdict-title">{{ st.headline }}</h1>
-    <p class="sub">{{ st.sub }}</p>
-    <dl class="facts">
-      <div><dt>파일</dt><dd>{{ filename }}</dd></div>
-      <div><dt>기간 <span class="tz">({{ s.tz_label }})</span></dt><dd>{{ s.start|when }} ~ {{ s.end|clock if same_day else s.end|when }}</dd></div>
-      <div><dt>확인한 접속</dt><dd>{{ s.requests|num }}건</dd></div>
-      <div><dt>방문한 곳</dt><dd>{{ s.ips|num }}개 IP</dd></div>
-    </dl>
-    <div class="toolbar">
-      <a class="btn" href="#glossary" id="open-glossary">용어 도우미</a>
-      <button class="btn" id="csv-btn" type="button">엑셀(CSV)로 저장</button>
-      <button class="btn" id="print-btn" type="button">인쇄·PDF</button>
-      <a class="btn btn-primary" href="/">다른 로그 분석하기</a>
-    </div>
+  {{ gardi(st.mood, 112, "gardi-bob") }}
+  <h1 id="verdict-title">{{ st.headline }}</h1>
+  <p class="sub">{{ st.sub }}</p>
+  <dl class="facts">
+    <div><dt>파일</dt><dd>{{ filename }}</dd></div>
+    <div><dt>기간 <span class="tz">({{ s.tz_label }})</span></dt><dd>{{ s.start|when }} ~ {{ s.end|clock if same_day else s.end|when }}</dd></div>
+    <div><dt>확인한 접속</dt><dd>{{ s.requests|num }}건</dd></div>
+    <div><dt>방문한 곳</dt><dd>{{ s.ips|num }}개 IP</dd></div>
+  </dl>
+  <div class="toolbar">
+    <a class="btn btn-primary" href="/">다른 로그 분석하기</a>
+    <button class="btn" id="csv-btn" type="button">CSV로 저장</button>
+    <button class="btn" id="print-btn" type="button">인쇄·PDF</button>
+    <a class="btn" href="#glossary" id="open-glossary">용어 도우미</a>
   </div>
 </section>
 
