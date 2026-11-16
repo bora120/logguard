@@ -164,7 +164,7 @@ def test_session_level_ai_finds_attack_hidden_in_normal_ip():
     for k, path in enumerate(["/old/", "/test/", "/tmp.html", "/v1/", "/api/users", "/dev/", "/upload/", "/private/"]):
         rows.append(line(sneaky, scan_at + timedelta(seconds=k * 25), path, 404))
     p = parse_stream(io.BytesIO("".join(rows).encode()), 10**8, 10**7)
-    r = {x["ip"]: x for x in analyze(p.df, p.fmt)["ips"]}
+    r = {x["ip"]: x for x in analyze(p.df, p.fmt, display_tz="UTC")["ips"]}
     assert sneaky in r
     ai = [f for f in r[sneaky]["findings"] if f["rule"] == "AI"][0]
     assert ai["start"].startswith("2026-11-01T13:0")
@@ -277,3 +277,15 @@ def test_vercel_mode_uses_forwarded_ip(client, monkeypatch):
 def test_gzip_upload_through_web(client):
     res = client.post("/api/analyze", files={"file": ("access.log", gzip.compress(SAMPLE.read_bytes()))})
     assert res.status_code == 200 and res.json()["summary"]["flagged"] == 7
+
+
+def test_story_and_korean_time():
+    from app.explain import build_story
+    p = parse_path(str(SAMPLE))
+    r = analyze(p.df, p.fmt)
+    assert r["summary"]["start"].endswith("+09:00") and r["summary"]["tz_offset_min"] == 540
+    story = build_story(r)
+    assert story["headline"] == "7곳에서 수상한 접속을 찾았어요" and story["mood"] == "alert"
+    assert story["todo"] and all(t["title"] for t in story["todo"])
+    calm = build_story({"ips": [], "summary": {"levels": {}, "flagged": 0, "ips": 3}})
+    assert calm["mood"] == "calm"

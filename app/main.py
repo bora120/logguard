@@ -20,6 +20,7 @@ from fastapi.templating import Jinja2Templates
 from . import config
 from .engine.analyzer import analyze
 from .engine.intel import default_geo, enrich, verify_bot
+from .explain import GLOSSARY, LEVELS, RULES, STATUS_CODES, build_story
 from .engine.parser import PRESET_LABELS, LogFormatError, LogTooLargeError, parse_path, parse_stream
 
 BASE = Path(__file__).resolve().parent
@@ -31,7 +32,21 @@ templates = Jinja2Templates(directory=BASE / "templates")
 templates.env.globals.update(app_name=config.APP_NAME, max_mb=config.MAX_UPLOAD_MB,
                              contact=config.CONTACT_EMAIL, abuse_enabled=bool(config.ABUSEIPDB_KEY),
                              abuse_max=config.ABUSEIPDB_MAX, geo_enabled=default_geo().available,
-                             format_labels=PRESET_LABELS)
+                             format_labels=PRESET_LABELS, RULES=RULES, LEVELS=LEVELS,
+                             GLOSSARY=GLOSSARY, STATUS_CODES=STATUS_CODES)
+
+
+def _when(iso: str, with_date: bool = True) -> str:
+    """'2026-11-16T15:15:30+09:00' → '11월 16일 15:15:30'"""
+    if not iso:
+        return ""
+    m, d, t = int(iso[5:7]), int(iso[8:10]), iso[11:19]
+    return f"{m}월 {d}일 {t}" if with_date else t
+
+
+templates.env.filters["when"] = _when
+templates.env.filters["clock"] = lambda iso: _when(iso, False)
+templates.env.filters["num"] = lambda n: f"{n:,}"
 
 _slots = threading.BoundedSemaphore(config.MAX_CONCURRENT)
 _hits: dict[str, deque] = defaultdict(deque)
@@ -72,9 +87,11 @@ def _run(parse_fn, use_abuse: bool = False):
     try:
         parsed = parse_fn()
         result = analyze(parsed.df, parsed.fmt,
-                         bot_verifier=verify_bot if config.VERIFY_BOTS else None)
+                         bot_verifier=verify_bot if config.VERIFY_BOTS else None,
+                         display_tz=config.DISPLAY_TZ)
         enrich(result, abuse_key=config.ABUSEIPDB_KEY if use_abuse else None,
                abuse_max=config.ABUSEIPDB_MAX)
+        result["story"] = build_story(result)
         result["meta"] = {"format": parsed.fmt, "total_lines": parsed.total_lines,
                           "parsed": parsed.parsed, "skipped": parsed.skipped,
                           "ip_source": parsed.ip_source, "warnings": parsed.warnings}

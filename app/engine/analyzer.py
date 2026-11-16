@@ -313,7 +313,8 @@ def finalize(result: dict) -> dict:
 
 
 def analyze(df: pd.DataFrame, fmt: str = "combined", max_ip_reports: int = 200,
-            bot_verifier: BotVerifier | None = None) -> dict:
+            bot_verifier: BotVerifier | None = None, display_tz: str = "Asia/Seoul") -> dict:
+    df = df.assign(time=df["time"].dt.tz_convert(display_tz))   # 보고서는 보기 편한 시간대로 표시
     d = mark_requests(df)
     has_agent = bool((d["agent"] != "").any())
     f = aggregate(d, "ip")
@@ -396,6 +397,9 @@ def analyze(df: pd.DataFrame, fmt: str = "combined", max_ip_reports: int = 200,
             "sessions": int(len(s)),
             "start": d["time"].min().isoformat(),
             "end": d["time"].max().isoformat(),
+            "tz": display_tz,
+            "tz_label": "한국 시간" if display_tz == "Asia/Seoul" else display_tz,
+            "tz_offset_min": int(d["time"].min().utcoffset().total_seconds() // 60),
             "flagged": len(ips),
             "levels": {},
             "ml_used": ml is not None,
@@ -404,6 +408,8 @@ def analyze(df: pd.DataFrame, fmt: str = "combined", max_ip_reports: int = 200,
         },
         "timeline": {
             "freq": freq,
+            "freq_label": {"5s": "5초", "10s": "10초", "30s": "30초", "1min": "1분", "5min": "5분", "15min": "15분",
+                           "1h": "1시간", "6h": "6시간", "1D": "하루", "7D": "일주일"}[freq],
             "labels": [t.isoformat() for t in timeline["time"]],
             "total": timeline["ip"].astype(int).tolist(),
             "suspicious": timeline["sus"].astype(int).tolist(),

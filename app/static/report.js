@@ -2,11 +2,16 @@
   const el = document.getElementById("report-data");
   if (!el) return;
   const data = JSON.parse(el.textContent);
+  const GRID = "#F6E8EE";
 
   // ── 차트 ──────────────────────────────────────────
   if (window.Chart) {
     Chart.defaults.font.family = getComputedStyle(document.body).fontFamily;
-    Chart.defaults.color = "#7a8190";
+    Chart.defaults.font.size = 12;
+    Chart.defaults.color = "#7A6570";
+    Chart.defaults.plugins.tooltip.backgroundColor = "#3B2B33";
+    Chart.defaults.plugins.tooltip.padding = 10;
+    Chart.defaults.plugins.tooltip.cornerRadius = 10;
     const tl = data.timeline;
     const fmt = function (iso) {
       if (/\d+s$/.test(tl.freq)) return iso.slice(11, 19);
@@ -18,34 +23,39 @@
       data: {
         labels: tl.labels.map(fmt),
         datasets: [
-          { label: "탐지된 IP 요청", data: tl.suspicious, backgroundColor: "#d84a4a", stack: "s" },
-          { label: "그 외 요청", data: tl.total.map(function (t, i) { return t - tl.suspicious[i]; }),
-            backgroundColor: "#c9ced8", stack: "s" },
+          { label: "수상한 접속", data: tl.suspicious, backgroundColor: "#E0475E", stack: "s",
+            borderRadius: 4, borderSkipped: false, borderColor: "#FFFFFF", borderWidth: { top: 2 } },
+          { label: "그 외 접속", data: tl.total.map(function (t, i) { return t - tl.suspicious[i]; }),
+            backgroundColor: "#EAD9E1", stack: "s", borderRadius: 4, borderSkipped: false },
         ],
       },
       options: {
         maintainAspectRatio: false, animation: false,
-        plugins: { legend: { position: "bottom", labels: { boxWidth: 10 } } },
+        plugins: { legend: { display: false },
+          tooltip: { callbacks: { label: function (c) { return c.dataset.label + " " + c.parsed.y.toLocaleString() + "건"; } } } },
         scales: { x: { stacked: true, grid: { display: false }, ticks: { maxTicksLimit: 8 } },
-                  y: { stacked: true, beginAtZero: true, grid: { color: "#eef1f5" } } },
+                  y: { stacked: true, beginAtZero: true, grid: { color: GRID }, border: { display: false } } },
       },
     });
 
-    const rc = data.rule_counts;
-    const names = Object.keys(rc).sort(function (a, b) { return rc[b] - rc[a]; });
+    const byRule = (data.story && data.story.by_rule) || [];
     new Chart(document.getElementById("rules"), {
       type: "bar",
-      data: { labels: names, datasets: [{ data: names.map(function (n) { return rc[n]; }),
-        backgroundColor: names.map(function (n) { return n.startsWith("AI") ? "#7e57c2" : "#2f5d8f"; }),
-        borderRadius: 4 }] },
+      data: { labels: byRule.map(function (x) { return x.icon + " " + x.easy; }),
+        datasets: [{ data: byRule.map(function (x) { return x.count; }), backgroundColor: "#EE8FB4",
+          hoverBackgroundColor: "#C93A72", borderRadius: 6, borderSkipped: "start", barPercentage: 0.72 }] },
       options: {
         indexAxis: "y", maintainAspectRatio: false, animation: false,
-        plugins: { legend: { display: false } },
-        scales: { x: { beginAtZero: true, ticks: { precision: 0 }, grid: { color: "#eef1f5" } },
-                  y: { grid: { display: false } } },
+        plugins: { legend: { display: false },
+          tooltip: { callbacks: { label: function (c) { return c.parsed.x + "곳"; } } } },
+        scales: { x: { beginAtZero: true, ticks: { precision: 0 }, grid: { color: GRID }, border: { display: false } },
+                  y: { grid: { display: false }, ticks: { color: "#5E4A54" } } },
       },
     });
   }
+
+  const EASY = {};
+  ((data.story && data.story.by_rule) || []).forEach(function (x) { EASY[x.rule] = x.icon + " " + x.easy; });
 
   // ── 공격 타임라인 (간트) ───────────────────────────
   const gBox = document.getElementById("gantt-box");
@@ -54,10 +64,12 @@
     const rows = data.ips.slice(0, 25);
     const t0 = Date.parse(data.summary.start), t1 = Date.parse(data.summary.end);
     const minW = Math.max((t1 - t0) * 0.006, 1000);
-    const color = { "높음": "#c62828", "중간": "#e08a00", "낮음": "#2f5d8f" };
+    const color = { "높음": "#E0475E", "중간": "#E8913F", "낮음": "#7C8BDB" };
+    const levelName = { "높음": "위험", "중간": "주의", "낮음": "참고" };
+    const off = (data.summary.tz_offset_min || 0) * 60e3;
     const pad = function (n) { return String(n).padStart(2, "0"); };
     const fmtT = function (ms) {
-      const d = new Date(ms);
+      const d = new Date(ms + off);
       const hm = pad(d.getUTCHours()) + ":" + pad(d.getUTCMinutes());
       if (t1 - t0 < 3600e3) return hm + ":" + pad(d.getUTCSeconds());
       if (t1 - t0 < 86400e3 * 2) return hm;
@@ -73,7 +85,7 @@
             return [a, Math.max(b, a + minW)];
           }),
           backgroundColor: rows.map(function (r) { return color[r.level]; }),
-          borderRadius: 3, barPercentage: 0.7, categoryPercentage: 0.9,
+          borderRadius: 6, borderSkipped: false, barPercentage: 0.66, categoryPercentage: 0.9,
         }],
       },
       options: {
@@ -83,15 +95,15 @@
           tooltip: { callbacks: {
             label: function (ctx) {
               const r = rows[ctx.dataIndex];
-              return r.level + " · " + fmtT(Date.parse(r.window.start)) + " ~ " + fmtT(Date.parse(r.window.end));
+              return levelName[r.level] + "  " + fmtT(Date.parse(r.window.start)) + " ~ " + fmtT(Date.parse(r.window.end));
             },
             afterLabel: function (ctx) {
-              return rows[ctx.dataIndex].findings.map(function (f) { return "• " + f.name; }).join("\n");
+              return rows[ctx.dataIndex].findings.map(function (f) { return "• " + (EASY[f.rule] || f.name); }).join("\n");
             },
           } },
         },
         scales: {
-          x: { type: "linear", min: t0, max: t1 + minW, grid: { color: "#eef1f5" },
+          x: { type: "linear", min: t0, max: t1 + minW, grid: { color: GRID }, border: { display: false },
                ticks: { maxTicksLimit: 7, callback: function (v) { return fmtT(v); } } },
           y: { grid: { display: false }, ticks: { font: { family: "ui-monospace, Menlo, Consolas, monospace" } } },
         },
@@ -136,6 +148,15 @@
     a.click();
     setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
   });
+
+  // ── 할 일 체크 ────────────────────────────────────
+  document.querySelectorAll(".todo input").forEach(function (box) {
+    box.addEventListener("change", function () { box.closest("li").classList.toggle("done", box.checked); });
+  });
+
+  // ── 용어 도우미 열기 ───────────────────────────────
+  const gl = document.getElementById("open-glossary");
+  if (gl) gl.addEventListener("click", function () { document.getElementById("glossary").open = true; });
 
   const printBtn = document.getElementById("print-btn");
   if (printBtn) printBtn.addEventListener("click", function () {

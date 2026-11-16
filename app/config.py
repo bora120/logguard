@@ -14,3 +14,4 @@ VERIFY_BOTS = os.getenv("VERIFY_BOTS", "1") == "1"                # 검색봇 �
 ABUSEIPDB_KEY = os.getenv("ABUSEIPDB_KEY", "")                     # 비워두면 평판 조회 기능 숨김
 ABUSEIPDB_MAX = int(os.getenv("ABUSEIPDB_MAX", "20"))             # 분석 1회당 조회할 최대 IP 수
 MAX_FORMAT_LEN = 500
+DISPLAY_TZ = os.getenv("DISPLAY_TZ", "Asia/Seoul")                # 보고서에 표시할 시간대
