@@ -12,12 +12,12 @@
 {% endif %}
 
 <section class="card upload-card">
-  <form id="upload-form" action="/analyze" method="post" enctype="multipart/form-data">
+  <form id="upload-form" action="/analyze" method="post" enctype="multipart/form-data" data-max-mb="{{ max_mb }}">
     <label class="dropzone" id="dropzone" for="file">
       <input id="file" name="file" type="file" accept=".log,.txt,.gz,.1,text/plain,application/gzip" required>
       <span class="dz-icon" aria-hidden="true">⇪</span>
       <span class="dz-title" id="dz-title">로그 파일을 끌어다 놓거나 클릭해서 선택</span>
-      <span class="dz-sub">access.log, access.log.1, access.log.gz · 최대 {{ max_mb }}MB</span>
+      <span class="dz-sub">access.log, access.log.1, access.log.gz · 브라우저에서 자동 압축 후 최대 {{ max_mb }}MB</span>
     </label>
     <details class="advanced">
       <summary>고급 설정</summary>
@@ -49,6 +49,7 @@
       <input type="checkbox" required>
       본인이 운영하거나 분석 권한이 있는 서버의 로그입니다.
     </label>
+    <p class="form-error" id="form-error" role="alert" hidden></p>
     <button class="btn primary" type="submit" id="submit-btn">분석 시작</button>
   </form>
   <p class="or">로그가 없다면 <a href="/sample">샘플 보고서 보기</a> · <a href="/sample/download">샘플 로그 받기</a></p>

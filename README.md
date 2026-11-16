@@ -88,6 +88,12 @@ python tools/evaluate.py app/sample/sample_access.log tests/sample_labels.csv
 python tools/update_geoip.py
 ```
 
+## 배포
+
+- **Vercel**: GitHub 저장소를 Vercel에서 Import 하면 바로 배포됩니다. (설정 파일 포함)
+- **VPS + Docker**: Nginx + HTTPS 구성
+- 자세한 순서는 [`deploy/DEPLOY.md`](deploy/DEPLOY.md) 참고
+
 ## 테스트
 
 ```bash
@@ -98,7 +104,7 @@ pytest -q
 
 | 이름 | 기본값 | 설명 |
 |---|---|---|
-| `MAX_UPLOAD_MB` | 50 | 업로드 파일 최대 크기 |
+| `MAX_UPLOAD_MB` | 50 (Vercel: 4) | 업로드 파일 최대 크기 (브라우저 압축 후 기준) |
 | `MAX_DECOMPRESSED_MB` | 300 | 압축을 푼 뒤 최대 크기 (압축 폭탄 방지) |
 | `MAX_LINES` | 2000000 | 최대 줄 수 |
 | `RATE_LIMIT_COUNT` / `RATE_LIMIT_WINDOW` | 10 / 600 | IP당 분석 횟수 제한 (10분에 10회) |

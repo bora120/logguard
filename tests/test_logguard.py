@@ -259,3 +259,21 @@ def test_bot_check_skipped_when_dns_broken(monkeypatch):
     from app.engine import intel
     monkeypatch.setattr(intel, "dns_available", lambda: False)
     assert intel.verify_bot("66.249.66.1", "Googlebot/2.1") is None
+
+
+def test_vercel_mode_uses_forwarded_ip(client, monkeypatch):
+    from app import main
+    monkeypatch.setattr(config, "ON_VERCEL", True)
+    monkeypatch.setattr(config, "RATE_LIMIT_COUNT", 1)
+    h1 = {"x-real-ip": "203.0.113.1"}
+    h2 = {"x-real-ip": "203.0.113.2"}
+    body = {"file": ("a.log", COMBINED.encode())}
+    assert client.post("/api/analyze", files=body, headers=h1).status_code == 200
+    assert client.post("/api/analyze", files=body, headers=h1).status_code == 429   # 같은 사람
+    assert client.post("/api/analyze", files=body, headers=h2).status_code == 200   # 다른 사람
+    assert main._client_ip.__name__ == "_client_ip"
+
+
+def test_gzip_upload_through_web(client):
+    res = client.post("/api/analyze", files={"file": ("access.log", gzip.compress(SAMPLE.read_bytes()))})
+    assert res.status_code == 200 and res.json()["summary"]["flagged"] == 7

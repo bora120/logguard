@@ -1,4 +1,43 @@
-# 배포 가이드 (Ubuntu VPS + 도메인 + HTTPS)
+# 배포 가이드
+
+LogGuard는 두 가지 방법으로 배포할 수 있습니다.
+
+| 방법 | 장점 | 제한 |
+|---|---|---|
+| **A. Vercel** (가장 쉬움) | GitHub 연결만 하면 자동 배포, `*.vercel.app` 주소와 HTTPS 자동 | 업로드는 브라우저 압축 후 4MB까지(원본 로그 기준 보통 수십 MB), 무료 Hobby 요금제는 비상업적 용도만 |
+| **B. VPS + Docker** | 제한 없음 (기본 50MB), 완전한 제어 | 서버를 직접 관리 |
+
+---
+
+## A. Vercel 배포
+
+이 저장소에는 Vercel 설정(`pyproject.toml`의 `[tool.vercel]`, `vercel.json`, `.python-version`)이 들어 있어 추가 설정 없이 배포됩니다.
+
+1. GitHub에 저장소를 올립니다.
+2. https://vercel.com 에서 **Continue with GitHub** 로 가입·로그인합니다.
+3. **Add New… → Project** → `logguard` 저장소 옆 **Import**
+4. Framework Preset 이 **FastAPI** 로 잡혔는지 확인합니다. (Build/Output 설정은 비워둡니다)
+5. (선택) **Environment Variables** 에 추가
+   - `CONTACT_EMAIL`: 화면 하단 문의처
+   - `ABUSEIPDB_KEY`: AbuseIPDB 무료 API 키
+6. **Deploy** → 1~3분 뒤 `https://logguard-xxxx.vercel.app` 주소가 생깁니다.
+
+이후에는 GitHub에 `git push` 할 때마다 자동으로 다시 배포됩니다.
+
+### Vercel에서 달라지는 점
+- Vercel은 `VERCEL` 환경변수를 자동으로 넣어주고, LogGuard는 이를 보고 업로드 제한을 **압축 후 4MB**로 맞춥니다. (Vercel 함수 요청 본문 제한 4.5MB)
+- 브라우저가 업로드 직전에 로그를 gzip으로 압축하므로 원본 기준으로는 훨씬 큰 로그도 올라갑니다. 압축 후에도 4MB를 넘으면 업로드 전에 안내 문구가 뜹니다.
+- 요청 횟수 제한은 함수 인스턴스마다 따로 세므로 대략적인 보호만 됩니다. 남용이 걱정되면 Vercel의 Firewall(WAF) 규칙으로 `/analyze` 에 Rate Limit 을 거세요.
+- 실행 시간 제한은 `vercel.json` 에서 60초로 잡았습니다.
+
+### 빌드가 실패하면
+- **번들 크기 초과**: Python 함수는 압축 해제 기준 500MB까지입니다. `vercel.json` 의 `excludeFiles` 에 필요 없는 폴더를 더 넣으세요.
+- **`PYTHON_ENTRYPOINT_NOT_FOUND`**: `pyproject.toml` 의 `[tool.vercel] entrypoint = "app.main:app"` 가 있는지 확인하세요.
+- Vercel 대시보드 → Deployments → 실패한 배포 → **Build Logs** 내용을 확인하세요.
+
+---
+
+## B. VPS + Docker 배포 (Ubuntu + 도메인 + HTTPS)
 
 준비물: 공인 IP가 있는 Ubuntu 22.04/24.04 서버(VPS), 도메인 1개.
 아래에서 `example.com` 은 내 도메인으로 바꿉니다.

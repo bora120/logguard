@@ -83,14 +83,23 @@ def _run(parse_fn, use_abuse: bool = False):
         _slots.release()
 
 
+def _client_ip(request: Request) -> str:
+    if config.ON_VERCEL:   # Vercel 프록시가 실제 접속자 IP를 헤더로 넘겨준다
+        ip = request.headers.get("x-real-ip") or request.headers.get("x-forwarded-for", "").split(",")[0]
+        if ip.strip():
+            return ip.strip()
+    return request.client.host if request.client else "unknown"
+
+
 def _analyze_upload(request: Request, file: UploadFile, log_format: str = "",
                     ip_source: str = "auto", abuse: bool = False) -> dict:
-    client = request.client.host if request.client else "unknown"
+    client = _client_ip(request)
     if _rate_limited(client):
         raise HTTPException(429, f"분석은 {config.RATE_LIMIT_WINDOW // 60}분에 "
                                  f"{config.RATE_LIMIT_COUNT}회까지 가능합니다.")
     if file.size is not None and file.size > config.MAX_UPLOAD_MB * 1024 * 1024:
-        raise HTTPException(413, f"파일은 {config.MAX_UPLOAD_MB}MB까지 올릴 수 있습니다.")
+        raise HTTPException(413, f"파일은 압축 후 {config.MAX_UPLOAD_MB}MB까지 올릴 수 있습니다. "
+                                 "로그를 날짜별로 나누거나 CLI 버전으로 분석해 주세요.")
     if len(log_format) > config.MAX_FORMAT_LEN:
         raise HTTPException(400, "로그 형식 문자열이 너무 깁니다.")
     if ip_source not in ("auto", "remote", "xff"):

@@ -1,7 +1,9 @@
 import os
 
 APP_NAME = os.getenv("APP_NAME", "LogGuard")
-MAX_UPLOAD_MB = int(os.getenv("MAX_UPLOAD_MB", "50"))           # 업로드 파일 크기
+ON_VERCEL = bool(os.getenv("VERCEL"))                            # Vercel 이 자동으로 넣어주는 환경변수
+# Vercel 함수는 요청 본문이 4.5MB로 제한된다. 브라우저가 gzip으로 압축해서 보내므로 원본 기준으로는 보통 수십 MB까지 가능.
+MAX_UPLOAD_MB = int(os.getenv("MAX_UPLOAD_MB", "4" if ON_VERCEL else "50"))   # 업로드(압축 후) 크기
 MAX_DECOMPRESSED_MB = int(os.getenv("MAX_DECOMPRESSED_MB", "300"))  # 압축 푼 뒤 크기
 MAX_LINES = int(os.getenv("MAX_LINES", "2000000"))
 RATE_LIMIT_COUNT = int(os.getenv("RATE_LIMIT_COUNT", "10"))      # IP당 분석 횟수

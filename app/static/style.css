@@ -197,3 +197,5 @@ table { border-collapse: collapse; width: 100%; }
   details { display: block; }
   details > .ip-body { display: block; }
 }
+
+.form-error { color: var(--high); background: var(--high-bg); border-radius: 8px; padding: 8px 12px; font-size: .9rem; margin: 0 0 12px; }
