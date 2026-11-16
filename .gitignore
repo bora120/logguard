@@ -1,0 +1,7 @@
+venv/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+*.log
+!app/sample/sample_access.log

@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="hero">
+  <p class="eyebrow">웹 서버 로그 이상 행위 탐지</p>
+  <h1>접속 로그를 올리면<br>공격 의심 IP를 찾아드립니다</h1>
+  <p class="lead">무차별 대입, 경로 스캔, SQL 인젝션, 과도한 요청을 규칙 기반 탐지와 AI(Isolation Forest)로 함께 분석합니다.
+    위험도, 탐지 이유, 대응 방법까지 한 번에 확인하세요.</p>
+</section>
+
+{% if error %}
+<div class="alert" role="alert"><strong>분석하지 못했습니다.</strong> {{ error }}</div>
+{% endif %}
+
+<section class="card upload-card">
+  <form id="upload-form" action="/analyze" method="post" enctype="multipart/form-data">
+    <label class="dropzone" id="dropzone" for="file">
+      <input id="file" name="file" type="file" accept=".log,.txt,.gz,.1,text/plain,application/gzip" required>
+      <span class="dz-icon" aria-hidden="true">⇪</span>
+      <span class="dz-title" id="dz-title">로그 파일을 끌어다 놓거나 클릭해서 선택</span>
+      <span class="dz-sub">access.log, access.log.1, access.log.gz · 최대 {{ max_mb }}MB</span>
+    </label>
+    <details class="advanced">
+      <summary>고급 설정</summary>
+      <div class="adv-body">
+        <label class="field">
+          <span class="field-label">IP 기준</span>
+          <select name="ip_source">
+            <option value="auto" selected>자동 (X-Forwarded-For가 있으면 사용)</option>
+            <option value="remote">접속 주소 그대로</option>
+            <option value="xff">X-Forwarded-For의 실제 접속자 IP</option>
+          </select>
+          <span class="field-help">CDN·로드밸런서 뒤에 있는 서버라면 X-Forwarded-For 기준이 정확합니다.</span>
+        </label>
+        <label class="field">
+          <span class="field-label">로그 형식 (선택)</span>
+          <textarea name="log_format" rows="2" maxlength="500" spellcheck="false"
+            placeholder='비워두면 자동 감지 · 예) %h %l %u %t "%r" %>s %b "%{Referer}i" "%{User-Agent}i" %D'></textarea>
+          <span class="field-help">서버 설정의 Apache <code>LogFormat</code> 또는 Nginx <code>log_format</code> 값을 그대로 붙여넣으세요.</span>
+        </label>
+        {% if abuse_enabled %}
+        <label class="consent">
+          <input type="checkbox" name="abuse">
+          <span>탐지된 IP의 평판을 AbuseIPDB에서 조회합니다. (탐지된 IP 최대 {{ abuse_max }}개만 외부로 전송)</span>
+        </label>
+        {% endif %}
+      </div>
+    </details>
+    <label class="consent">
+      <input type="checkbox" required>
+      본인이 운영하거나 분석 권한이 있는 서버의 로그입니다.
+    </label>
+    <button class="btn primary" type="submit" id="submit-btn">분석 시작</button>
+  </form>
+  <p class="or">로그가 없다면 <a href="/sample">샘플 보고서 보기</a> · <a href="/sample/download">샘플 로그 받기</a></p>
+</section>
+
+<section class="grid3">
+  <div class="card feature">
+    <h3>지원 형식</h3>
+    <p>Apache, Nginx 접속 로그의 <b>Combined</b>·<b>Common</b>·<b>X-Forwarded-For</b> 형식을 자동으로 감지하고, 직접 바꾼 로그 형식도 지원합니다. gzip 압축 파일도 그대로 올리면 됩니다.</p>
+  </div>
+  <div class="card feature">
+    <h3>규칙 + AI + 위협 정보</h3>
+    <p>7가지 보안 규칙으로 뚜렷한 공격을 잡고, AI가 시간 구간별로 <b>규칙을 피한 은밀한 행동</b>을 찾아냅니다. 국가·통신사와 검색봇 진위도 확인합니다.</p>
+  </div>
+  <div class="card feature">
+    <h3>저장하지 않음</h3>
+    <p>업로드한 로그는 디스크에 쓰지 않고 메모리에서만 분석한 뒤 즉시 폐기합니다. 결과도 서버에 남지 않습니다.</p>
+  </div>
+</section>
+
+<section class="card howto">
+  <h2>로그 파일은 어디에 있나요?</h2>
+  <table class="plain">
+    <tr><th>Apache (Ubuntu/Debian)</th><td><code>/var/log/apache2/access.log</code></td></tr>
+    <tr><th>Apache (RHEL/Rocky)</th><td><code>/var/log/httpd/access_log</code></td></tr>
+    <tr><th>Nginx</th><td><code>/var/log/nginx/access.log</code></td></tr>
+  </table>
+  <p>내 PC로 가져오기: <code>scp 사용자@서버주소:/var/log/apache2/access.log .</code></p>
+  <p class="muted">CDN·로드밸런서 뒤에 있는 서버라면 로그에 실제 접속자 IP가 기록되도록 설정해야 정확하게 분석됩니다.</p>
+</section>
+{% endblock %}
+{% block scripts %}<script src="/static/upload.js"></script>{% endblock %}

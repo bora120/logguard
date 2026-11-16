@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+{% block title %}분석 결과 · {{ app_name }}{% endblock %}
+{% set s = r.summary %}
+{% block content %}
+<section class="report-head">
+  <div>
+    <p class="eyebrow">분석 결과</p>
+    <h1 class="filename">{{ filename }}</h1>
+    <p class="muted">{{ s.start[:19]|replace("T", " ") }} ~ {{ s.end[:19]|replace("T", " ") }} (UTC) · {{ format_labels.get(r.meta.format, r.meta.format) }} 형식 · IP 기준: {{ "X-Forwarded-For" if r.meta.ip_source == "xff" else "접속 주소" }}</p>
+  </div>
+  <div class="head-actions">
+    <button class="btn" id="csv-btn" type="button">CSV로 저장</button>
+    <button class="btn" id="print-btn" type="button">인쇄 / PDF</button>
+    <a class="btn primary" href="/">다른 로그 분석</a>
+  </div>
+</section>
+
+{% if is_sample %}
+<div class="notice">이 보고서는 테스트용으로 만든 가상 트래픽입니다. 정상 사용자 20명과 공격자 7명(뚜렷한 공격 4종 + 규칙을 피하는 은밀한 공격 3종)이 섞여 있습니다.</div>
+{% endif %}
+{% for w in r.meta.warnings %}<div class="notice">{{ w }}</div>{% endfor %}
+{% if r.intel.abuse_failed %}<div class="notice">AbuseIPDB 조회 {{ r.intel.abuse_failed }}건은 응답이 없어 결과에서 빠졌습니다.</div>{% endif %}
+
+<section class="stats">
+  <div class="stat"><span class="stat-label">분석한 요청</span><span class="stat-value">{{ "{:,}".format(s.requests) }}</span></div>
+  <div class="stat"><span class="stat-label">접속 IP</span><span class="stat-value">{{ "{:,}".format(s.ips) }}</span></div>
+  <div class="stat danger"><span class="stat-label">위험 높음</span><span class="stat-value">{{ s.levels["높음"] }}</span></div>
+  <div class="stat warn"><span class="stat-label">위험 중간</span><span class="stat-value">{{ s.levels["중간"] }}</span></div>
+  <div class="stat info"><span class="stat-label">위험 낮음</span><span class="stat-value">{{ s.levels["낮음"] }}</span></div>
+</section>
+
+{% if not s.ml_used %}
+<div class="notice">접속 IP가 10개 미만이라 AI 비교 분석은 생략하고 규칙 기반 탐지만 수행했습니다.</div>
+{% endif %}
+
+<section class="grid2">
+  <div class="card chart-card">
+    <h2>시간대별 요청</h2>
+    <p class="muted small">회색은 전체 요청, 빨간색은 탐지된 IP의 요청입니다.</p>
+    <div class="chart-box"><canvas id="timeline"></canvas></div>
+  </div>
+  <div class="card chart-card">
+    <h2>탐지 유형</h2>
+    <p class="muted small">유형별로 해당하는 IP 수입니다.</p>
+    <div class="chart-box"><canvas id="rules"></canvas></div>
+  </div>
+</section>
+
+{% if r.ips %}
+<section class="card">
+  <h2>공격 타임라인</h2>
+  <p class="muted small">탐지된 IP가 의심 행동을 한 구간입니다. 막대에 마우스를 올리면 탐지 유형이 보입니다. (UTC)</p>
+  <div class="chart-box gantt" id="gantt-box" data-height="{{ [140, 40 + 26 * ([r.ips|length, 25]|min)]|max }}"><canvas id="gantt"></canvas></div>
+</section>
+{% endif %}
+
+{% if r.intel.geo and r.intel.orgs %}
+<section class="grid2">
+  <div class="card">
+    <h2>탐지 IP 국가</h2>
+    <table class="rank">{% for name, n in r.intel.countries %}<tr><td>{{ name }}</td><td class="num">{{ n }}</td></tr>{% endfor %}</table>
+  </div>
+  <div class="card">
+    <h2>탐지 IP 통신사·호스팅(ASN)</h2>
+    {% if r.intel.orgs %}
+    <table class="rank">{% for name, n in r.intel.orgs %}<tr><td>{{ name }}</td><td class="num">{{ n }}</td></tr>{% endfor %}</table>
+    {% else %}<p class="empty">조회된 통신사 정보가 없습니다.</p>{% endif %}
+  </div>
+</section>
+{% endif %}
+
+<section class="card">
+  <div class="section-head">
+    <h2>탐지된 IP <span class="count">{{ r.ips|length }}</span></h2>
+    <div class="filters" role="group" aria-label="위험도 필터">
+      <button type="button" class="chip active" data-level="all">전체</button>
+      <button type="button" class="chip" data-level="높음">높음</button>
+      <button type="button" class="chip" data-level="중간">중간</button>
+      <button type="button" class="chip" data-level="낮음">낮음</button>
+    </div>
+  </div>
+
+  {% if not r.ips %}
+  <p class="empty">탐지된 이상 행위가 없습니다. 👍</p>
+  {% endif %}
+
+  <div class="ip-list">
+  {% for ip in r.ips %}
+    <details class="ip-item" data-level="{{ ip.level }}">
+      <summary>
+        <span class="badge lv-{{ ip.level }}">{{ ip.level }}</span>
+        <span class="ip mono">{{ ip.ip }}{% set g = ip.intel.geo %}{% if g and g.country_name %}<span class="geo">{{ g.country_name }}</span>{% endif %}</span>
+        <span class="tags">{% for f in ip.findings %}<span class="tag{% if f.rule == 'AI' %} tag-ai{% elif f.rule == 'TI' %} tag-ti{% endif %}">{{ f.name }}</span>{% endfor %}</span>
+        <span class="ip-meta">{{ "{:,}".format(ip.stats.requests) }}회 요청</span>
+      </summary>
+      <div class="ip-body">
+        <div class="findings">
+          {% for f in ip.findings %}
+          <div class="finding">
+            <div class="finding-head"><span class="badge small lv-{{ f.level }}">{{ f.level }}</span> <b>{{ f.name }}</b></div>
+            <p>{{ f.reason }}</p>
+            {% if f.start %}<p class="muted small">구간 {{ f.start[:19]|replace("T", " ") }} ~ {{ f.end[11:19] if f.start[:10] == f.end[:10] else f.end[:19]|replace("T", " ") }}</p>{% endif %}
+            <p class="action"><span>대응</span> {{ f.action }}</p>
+          </div>
+          {% endfor %}
+        </div>
+        <dl class="kv">
+          <div><dt>처음 접속</dt><dd>{{ ip.stats.first_seen[:19]|replace("T", " ") }}</dd></div>
+          <div><dt>마지막 접속</dt><dd>{{ ip.stats.last_seen[:19]|replace("T", " ") }}</dd></div>
+          <div><dt>60초 최대 요청</dt><dd>{{ ip.stats.peak_60s }}회</dd></div>
+          <div><dt>오류 응답 비율</dt><dd>{{ ip.stats.err_ratio }}%</dd></div>
+          <div><dt>세션 수</dt><dd>{{ ip.stats.sessions }}개</dd></div>
+          {% if ip.ml_score is not none %}<div><dt>AI 이상 점수</dt><dd>{{ ip.ml_score }}</dd></div>{% endif %}
+          {% set g = ip.intel.geo %}
+          {% if g %}
+          <div><dt>국가</dt><dd>{{ g.country_name or "알 수 없음" }}{% if g.country and g.country != g.country_name %} ({{ g.country }}){% endif %}</dd></div>
+          <div><dt>통신사(ASN)</dt><dd>{% if g.asn %}AS{{ g.asn }} {{ g.org }}{% else %}-{% endif %}</dd></div>
+          {% if g.scope %}<div><dt>IP 유형</dt><dd>{{ g.scope }}</dd></div>{% endif %}
+          {% endif %}
+          {% if ip.bot %}<div><dt>검색봇 검증</dt><dd>{{ ip.bot }}</dd></div>{% endif %}
+          {% set ab = ip.intel.abuse %}
+          {% if ab %}<div><dt>AbuseIPDB</dt><dd>신뢰도 {{ ab.score }}% · 신고 {{ "{:,}".format(ab.reports) }}건{% if ab.usage %} · {{ ab.usage }}{% endif %}</dd></div>{% endif %}
+          {% if ip.stats.agent %}<div class="wide"><dt>User-Agent</dt><dd class="mono">{{ ip.stats.agent }}</dd></div>{% endif %}
+        </dl>
+        <h4>요청 예시</h4>
+        <div class="table-wrap">
+          <table class="req">
+            <thead><tr><th>시간(UTC)</th><th>메서드</th><th>URL</th><th>상태</th></tr></thead>
+            <tbody>
+            {% for q in ip.samples %}
+              <tr><td class="mono">{{ q.time[11:19] }}</td><td>{{ q.method }}</td><td class="mono url">{{ q.url }}</td>
+                  <td><span class="status s{{ q.status // 100 }}">{{ q.status }}</span></td></tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <p class="muted small">차단 예시: <code>sudo ufw deny from {{ ip.ip }}</code> (CDN·공유 IP일 수 있으니 확인 후 적용하세요)</p>
+      </div>
+    </details>
+  {% endfor %}
+  </div>
+  {% if r.truncated_ips %}<p class="muted">위험도 순 상위 {{ r.ips|length }}개만 표시합니다. 나머지 {{ r.truncated_ips }}개 IP는 화면과 CSV에서 생략되었습니다.</p>{% endif %}
+</section>
+
+<section class="grid2">
+  <div class="card">
+    <h2>많이 요청된 URL</h2>
+    <table class="rank">{% for u in r.top_urls %}<tr><td class="mono url">{{ u.url }}</td><td class="num">{{ "{:,}".format(u.count) }}</td></tr>{% endfor %}</table>
+  </div>
+  <div class="card">
+    <h2>404가 많이 난 URL</h2>
+    {% if r.top_404 %}
+    <table class="rank">{% for u in r.top_404 %}<tr><td class="mono url">{{ u.url }}</td><td class="num">{{ "{:,}".format(u.count) }}</td></tr>{% endfor %}</table>
+    {% else %}<p class="empty">404 응답이 없습니다.</p>{% endif %}
+  </div>
+</section>
+
+<section class="card">
+  <h2>상태 코드 분포</h2>
+  <div class="status-row">
+    {% for code, n in s.status.items() %}<span class="status-pill s{{ code[0] }}"><b>{{ code }}</b> {{ "{:,}".format(n) }}</span>{% endfor %}
+  </div>
+  <p class="muted small">총 {{ "{:,}".format(r.meta.total_lines) }}줄 중 {{ "{:,}".format(r.meta.parsed) }}줄 분석 · {{ "{:,}".format(r.meta.skipped) }}줄 제외</p>
+</section>
+
+<script type="application/json" id="report-data">{{ r|tojson }}</script>
+{% endblock %}
+{% block scripts %}
+<script src="/static/vendor/chart.umd.min.js"></script>
+<script src="/static/report.js"></script>
+{% endblock %}

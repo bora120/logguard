@@ -1,0 +1,21 @@
+services:
+  logguard:
+    build: .
+    container_name: logguard
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8000:8000"   # 외부에는 Nginx(443)로만 노출
+    environment:
+      MAX_UPLOAD_MB: "50"
+      MAX_DECOMPRESSED_MB: "300"
+      RATE_LIMIT_COUNT: "10"
+      RATE_LIMIT_WINDOW: "600"
+      MAX_CONCURRENT: "2"
+      CONTACT_EMAIL: ""
+      VERIFY_BOTS: "1"
+      ABUSEIPDB_KEY: ""        # https://www.abuseipdb.com 에서 무료 키 발급 (비우면 기능 숨김)
+      ABUSEIPDB_MAX: "20"
+    read_only: true
+    tmpfs:
+      - /tmp
+    mem_limit: 1500m
